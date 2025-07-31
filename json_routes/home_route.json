@@ -1,0 +1,13 @@
+[{
+        "function_type": "normal_page",
+        "route": "/",
+        "title": "Home Page",
+        "body": "<h3>Welcome to the Local Site</h3>"
+    },
+    {
+        "function_type": "normal_page",
+        "route": "/help",
+        "title": "Help Page",
+        "body": "help.html"
+    }
+]

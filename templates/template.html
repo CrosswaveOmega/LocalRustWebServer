@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="/static/98.css">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }}</title>
+    <style>
+        /* Ensure the window resizes properly */
+        .window {
+            width: 100%;
+            margin: auto;
+        }
+
+        .window-body {
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+        }
+
+        .status-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+
+        .status-bar-field {
+            flex: 1;
+            min-width: 100px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-bar-text">{{ title }}</div>
+            <div class="title-bar-controls">
+                <button aria-label="Help" class="help" onclick="location.href='/help'"></button>
+                <button aria-label="Minimize" class="minimize"></button>
+                <button aria-label="Maximize" class="maximize"></button>
+                <button aria-label="Close" class="close" onclick="location.href='/'"></button>
+            </div>
+        </div>
+        <div class="window-body">
+            {{ body|safe }}
+        </div>
+        <div class="status-bar">
+            <p class="status-bar-field">Press F1 for help</p>
+            <p class="status-bar-field">Slide 1</p>
+            <p class="status-bar-field">CPU Usage: 14%</p>
+            <p class="status-bar-field">RAM Usage: 60%</p>
+            <p class="status-bar-field">Swap Usage: 0%</p>
+        </div>
+    </div>
+    <script src="/static/status.js"></script>
+    <script>
+        updateStatusBar();
+        // interval to update the status bar periodically (every 0.5 seconds)
+        setInterval(updateStatusBar, 500);
+    </script>
+</body>
+
+</html>
