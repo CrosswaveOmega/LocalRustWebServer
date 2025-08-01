@@ -24,6 +24,10 @@ pub fn load_template_config() {
         .filter_map(|(k, v)| k.parse::<i32>().ok().map(|key| (key, v)))
         .collect::<HashMap<_, _>>();
 
+    for value in mapped.values() {
+        println!("{}", value);
+    }
+
     TEMPLATE_MAP.set(mapped).expect("TEMPLATE_MAP already set");
 }
 
