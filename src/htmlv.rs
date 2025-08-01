@@ -52,6 +52,7 @@ impl RenderHtml for (&str, &str) {
             .unwrap_or_else(|| "template.html".to_string());
 
         let template_path = format!("./templates/{}", template_name);
+        println!("{}",template_path);
         let template_string = fs::read_to_string(&template_path)
             .unwrap_or_else(|_| "<h1>Template Not Found</h1>".to_string());
 
