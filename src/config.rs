@@ -3,7 +3,11 @@ All config related stuff is here.
 
 */
 use serde::{Deserialize, Serialize};
-use std::{fs::File, io::{BufReader, Write}, path::Path};
+use std::{
+    fs::File,
+    io::{BufReader, Write},
+    path::Path,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -31,7 +35,8 @@ pub fn load_or_create_config(path: &str) -> SystemConfig {
 
         let yaml = serde_yaml::to_string(&default).expect("Failed to serialize default config");
         let mut file = File::create(path).expect("Failed to create config.yaml");
-        file.write_all(yaml.as_bytes()).expect("Failed to write default config");
+        file.write_all(yaml.as_bytes())
+            .expect("Failed to write default config");
     }
 
     let file = File::open(path).expect("Failed to open config.yaml");

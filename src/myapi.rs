@@ -1,28 +1,27 @@
-mod updatefromgameapi;
 mod shell_script_run;
+mod updatefromgameapi;
 
-use updatefromgameapi::{api_proxy};
-use shell_script_run::{run_command_handler};
+use shell_script_run::run_command_handler;
+use updatefromgameapi::api_proxy;
 
-use crate::htmlv::{RenderHtml, HtmlV};
-use crate::my_api_config::{RouteFunction};
-use crate::procmon::{system_usage_handler};
+use crate::htmlv::{HtmlV, RenderHtml};
+use crate::my_api_config::RouteFunction;
+use crate::procmon::system_usage_handler;
 
-use axum::{extract::Query, routing::get, 
-    routing::{post},Router,response::{IntoResponse}};
+use axum::{Router, extract::Query, response::IntoResponse, routing::get, routing::post};
 use serde::Deserialize;
-use std::process::{Stdio,Command};
+use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use std::collections::HashMap;
 use tower_http::services::ServeDir;
 
-use std::thread;
+use serde_json::Value;
+use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::fs;
 use std::path::{Path, PathBuf};
-use serde_json::Value;
+use std::thread;
 
 fn load_routes_from_json(path: &str) -> Vec<RouteFunction> {
     let contents = fs::read_to_string(path).expect("Failed to read routes JSON file");
@@ -105,18 +104,15 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
     all_routes
 }
 
-
 // For NormalPage:
 async fn normal_page_handler(title: String, body: String) -> HtmlV<String> {
     HtmlV((title, body).render_html_from_int(0))
 }
 
 // For NormalPageTemplate:
-async fn normal_page_template_handler(title: String, body: String, template:i32) -> HtmlV<String> {
+async fn normal_page_template_handler(title: String, body: String, template: i32) -> HtmlV<String> {
     HtmlV((title, body).render_html_from_int(template))
-} 
-
-
+}
 
 pub async fn get_logs_handler(
     Query(params): Query<HashMap<String, String>>,
@@ -169,6 +165,7 @@ pub async fn get_logs_handler_wrapped(
 ) -> impl IntoResponse {
     get_logs_handler(query, log_file_types, title).await
 }
+/*
 pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>) -> Router {
     let mut router = Router::new();
 
@@ -184,14 +181,25 @@ pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>) ->
                     get(move || normal_page_handler(title_clone.clone(), body_clone.clone())),
                 );
             }
-            RouteFunction::NormalPageTemplate { route, title, body, template_num } => {
+            RouteFunction::NormalPageTemplate {
+                route,
+                title,
+                body,
+                template_num,
+            } => {
                 // Clone for move into async closure
                 let title_clone = title.clone();
                 let body_clone = body.clone();
 
                 router = router.route(
                     &route,
-                    get(move || normal_page_template_handler(title_clone.clone(), body_clone.clone(),template_num.clone())),
+                    get(move || {
+                        normal_page_template_handler(
+                            title_clone.clone(),
+                            body_clone.clone(),
+                            template_num.clone(),
+                        )
+                    }),
                 );
             }
             RouteFunction::RunCommand {
@@ -200,15 +208,24 @@ pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>) ->
                 log_file_path,
                 script_file_path,
                 title,
+                template_num,
             } => {
                 let lock_clone = lock_file_path.clone();
                 let log_clone = log_file_path.clone();
                 let script_clone = script_file_path.clone();
                 let title_clone = title.clone();
-            
+
                 router = router.route(
                     &route,
-                    get(move || run_command_handler(lock_clone.clone(), log_clone.clone(), script_clone.clone(), title_clone.clone())),
+                    get(move || {
+                        run_command_handler(
+                            lock_clone.clone(),
+                            log_clone.clone(),
+                            script_clone.clone(),
+                            title_clone.clone(),
+                            template_num.clone(),
+                        )
+                    }),
                 );
             }
             RouteFunction::GetLogs {
@@ -220,24 +237,95 @@ pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>) ->
                 let title = title.clone();
                 router = router.route(
                     &route,
-                    get(move |query| get_logs_handler_wrapped(query, log_types.clone(), title.clone())),
+                    get(move |query| {
+                        get_logs_handler_wrapped(query, log_types.clone(), title.clone())
+                    }),
                 );
-            }
-            // Add more cases here for additional variants...
+            } // Add more cases here for additional variants...
         }
     }
 
     router
 }
+*/
+pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>) -> Router {
+    let mut router = Router::new();
+
+    for route_func in route_functions {
+        let meta = match &route_func {
+            RouteFunction::NormalPage { meta, .. }
+            | RouteFunction::RunCommand { meta, .. }
+            | RouteFunction::GetLogs { meta, .. } => meta,
+        };
+
+        println!("{},{},{}", meta.route, meta.title, meta.description);
+        match route_func {
+            RouteFunction::NormalPage { meta, body } => {
+                let title_clone = meta.title.clone();
+                let body_clone = body.clone();
+                let template_num = meta.template_num;
+                router = router.route(
+                    &meta.route,
+                    get(move || {
+                        normal_page_template_handler(
+                            title_clone.clone(),
+                            body_clone.clone(),
+                            template_num.clone(),
+                        )
+                    }),
+                );
+            }
+
+            RouteFunction::RunCommand {
+                meta,
+                lock_file_path,
+                log_file_path,
+                script_file_path,
+            } => {
+                let lock_clone = lock_file_path.clone();
+                let log_clone = log_file_path.clone();
+                let script_clone = script_file_path.clone();
+                let title_clone = meta.title.clone();
+                router = router.route(
+                    &meta.route,
+                    get(move || {
+                        run_command_handler(
+                            lock_clone.clone(),
+                            log_clone.clone(),
+                            script_clone.clone(),
+                            title_clone.clone(),
+                            meta.template_num,
+                        )
+                    }),
+                );
+            }
+
+            RouteFunction::GetLogs {
+                meta,
+                log_file_types,
+            } => {
+                let title = meta.title.clone();
+                let log_types = log_file_types.clone();
+                router = router.route(
+                    &meta.route,
+                    get(move |query| {
+                        get_logs_handler_wrapped(query, log_types.clone(), title.clone())
+                    }),
+                );
+            }
+        }
+    }
+
+    router
+}
+
 pub fn routes() -> Router {
     let route_functions = load_routes_from_dir("./json_routes");
     build_router_from_route_functions(route_functions)
-    // MANUAL ROUTES.
-    // Extension 1, System Resource Monitor.
-    .route("/procmon",get(system_usage_handler))
-    // Extension 2, Game Api caller.
-    .route("/api-proxy", get(api_proxy))
-    .nest_service(
-        "/static",
-        ServeDir::new("statics"))
+        // MANUAL ROUTES.
+        // Extension 1, System Resource Monitor.
+        .route("/procmon", get(system_usage_handler))
+        // Extension 2, Game Api caller.
+        .route("/api-proxy", get(api_proxy))
+        .nest_service("/static", ServeDir::new("statics"))
 }

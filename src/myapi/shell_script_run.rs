@@ -1,22 +1,20 @@
-use crate::htmlv::{RenderHtml, HtmlV};
-use crate::my_api_config::{RouteFunction};
-use axum::{extract::Query, routing::get, 
-    routing::{post},Router,response::{IntoResponse}};
+use crate::htmlv::{HtmlV, RenderHtml};
+use crate::my_api_config::RouteFunction;
+use axum::{Router, extract::Query, response::IntoResponse, routing::get, routing::post};
 use serde::Deserialize;
-use std::process::{Stdio,Command};
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::collections::HashMap;
+use std::process::{Command, Stdio};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::process::Command as TokioCommand;
 use tower_http::services::ServeDir;
 
+use serde_json::Value;
 use shellexpand;
-use std::thread;
+use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::fs;
 use std::path::{Path, PathBuf};
-use serde_json::Value;
-
+use std::thread;
 
 /// Returns Ok(true) if lock acquired, Ok(false) if lock held by another process.
 pub async fn try_acquire_lock(lock_path: &str) -> Result<bool, std::io::Error> {
@@ -33,20 +31,18 @@ pub async fn try_acquire_lock(lock_path: &str) -> Result<bool, std::io::Error> {
     }
 }
 
-
 /// Spawn a shell script in the background and log its output.
 /// Returns a message about whether the script started successfully.
-pub async fn spawn_script_in_background(script_path: &str, log_path: &str) -> Result<String, std::io::Error> {
+pub async fn spawn_script_in_background(
+    script_path: &str,
+    log_path: &str,
+) -> Result<String, std::io::Error> {
     tracing::debug!("Running {} in the background", script_path);
 
     let mut command = TokioCommand::new("sh");
     command
         .arg("-c")
-        .arg(format!(
-            "{} > {} 2>&1",
-            script_path,
-            log_path
-        ))
+        .arg(format!("{} > {} 2>&1", script_path, log_path))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
@@ -67,10 +63,14 @@ pub async fn spawn_script_in_background(script_path: &str, log_path: &str) -> Re
     }
 }
 
-
-
 /// For the RunCommand RouteFunction
-pub async fn run_command_handler(lock:String,log:String,script:String,title:String) -> HtmlV<String> {
+pub async fn run_command_handler(
+    lock: String,
+    log: String,
+    script: String,
+    title: String,
+    template: i32,
+) -> HtmlV<String> {
     let lock_file_path = shellexpand::tilde(&lock).to_string();
     let log_file_path = shellexpand::tilde(&log).to_string();
     let script_file_path = shellexpand::tilde(&script).to_string();
@@ -89,13 +89,17 @@ pub async fn run_command_handler(lock:String,log:String,script:String,title:Stri
                 Err(e) => format!("Failed to execute async task: {}", e),
             };
 
-            HtmlV((title, format!("<p>{}</p>", mywork)).render_html_from_int(1))
+            HtmlV((title, format!("<p>{}</p>", mywork)).render_html_from_int(template))
         }
-        Ok(false) => {
-            HtmlV((title, "<p>This script is already running...</p>".to_string()).render_html_from_int(1))
-        }
-        Err(e) => {
-            HtmlV((title, format!("<p>Error acquiring lock: {}</p>", e)).render_html_from_int(1))
-        }
+        Ok(false) => HtmlV(
+            (
+                title,
+                "<p>This script is already running...</p>".to_string(),
+            )
+                .render_html_from_int(template),
+        ),
+        Err(e) => HtmlV(
+            (title, format!("<p>Error acquiring lock: {}</p>", e)).render_html_from_int(template),
+        ),
     }
 }

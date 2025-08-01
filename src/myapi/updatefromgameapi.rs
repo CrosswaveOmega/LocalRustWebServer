@@ -1,33 +1,32 @@
 // an extension for Helldiver 2, a game I play.
-use crate::htmlv::{RenderHtml, HtmlV};
-use axum::{routing::get, Router, response::Html,response::Json,
-    extract::Query, response::IntoResponse};
-use reqwest::{Client,header};
+use crate::htmlv::{HtmlV, RenderHtml};
+use axum::{
+    Router, extract::Query, response::Html, response::IntoResponse, response::Json, routing::get,
+};
+use reqwest::{Client, header};
 
-
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use serde::{Serialize,Deserialize};
-use serde::de::DeserializeOwned;
-use serde_json::Value;
-use std::fmt::Debug;  
 use axum::http::StatusCode;
-use std::time::{SystemTime, UNIX_EPOCH};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::env;
+use std::fmt::Debug;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 //
 // --- Query Parameters ---
 //
 #[derive(Deserialize)]
 pub struct ApiProxyParams {
-    /// The endpoint to call 
+    /// The endpoint to call
     pub endpoint: String,
     /// Optional parameter for NewsFeed: maximum number of entries
     pub maxEntries: Option<i32>,
     /// Optional parameter for NewsFeed: only entries after this timestamp
     pub fromTimestamp: Option<i64>,
 }
-
 
 //
 // --- Constant Base URL ---
@@ -46,7 +45,7 @@ async fn fetch_raw_json(client: &Client, url: &str) -> Option<Value> {
     {
         Ok(resp) => {
             let body = resp.text().await.ok()?;
-            println!("{}",body);
+            println!("{}", body);
             match serde_json::from_str::<Value>(&body) {
                 Ok(data) => Some(data),
                 Err(e) => {
@@ -94,7 +93,7 @@ pub async fn api_proxy(Query(params): Query<ApiProxyParams>) -> impl IntoRespons
             let mut query_params = Vec::new();
             if let Some(max) = params.maxEntries {
                 query_params.push(format!("maxEntries={}", max));
-            }else{
+            } else {
                 query_params.push(format!("maxEntries={}", 1024));
             }
             if let Some(ts) = params.fromTimestamp {
@@ -168,9 +167,7 @@ pub async fn api_proxy(Query(params): Query<ApiProxyParams>) -> impl IntoRespons
                     .into_response(),
             }
         }
-        
 
         _ => (StatusCode::BAD_REQUEST, "Invalid endpoint").into_response(),
     }
 }
-

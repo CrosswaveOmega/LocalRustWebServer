@@ -4,13 +4,17 @@ Module that sends out current cpu and memory usage.
 
 */
 
-use axum::{response::{Json, IntoResponse}, routing::get, Router};
+use axum::{
+    Router,
+    response::{IntoResponse, Json},
+    routing::get,
+};
 use serde::Serialize;
 use std::fs;
 use std::process::Command;
+use sysinfo::{CpuRefreshKind, RefreshKind, System};
 use tokio;
 use tokio::sync::Mutex;
-use sysinfo::{CpuRefreshKind, RefreshKind, System};
 
 use once_cell::sync::Lazy;
 
@@ -62,8 +66,6 @@ async fn get_swap_usage() -> f32 {
         0.0
     }
 }
-
-
 
 async fn get_system_usage() -> SystemUsage {
     let cpu_usage = get_cpu_usage().await;

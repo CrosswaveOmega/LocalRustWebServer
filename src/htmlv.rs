@@ -1,19 +1,23 @@
+use axum::http::{HeaderValue, header};
 use axum::response::{IntoResponse, Response};
-use axum::http::{header, HeaderValue};
 use mime::TEXT_HTML_UTF_8;
 use std::collections::HashMap;
 use std::fs;
+use std::path::Path;
 use std::sync::OnceLock;
-
 static TEMPLATE_MAP: OnceLock<HashMap<i32, String>> = OnceLock::new();
 
-/// Loads template config from ./templates/templateconfig.json into global map.
+/// Loads template config from ./templates/template_config.json into global map.
 pub fn load_template_config() {
+    if !Path::new("./templates").exists() {
+        eprintln!("Warning: ./templates is not a valid path.");
+    }
+
     let raw = fs::read_to_string("./templates/template_config.json")
-        .expect("Missing templateconfig.json");
+        .expect("Missing ./templates/template_config.json");
 
     let parsed: HashMap<String, String> =
-        serde_json::from_str(&raw).expect("Failed to parse templateconfig.json");
+        serde_json::from_str(&raw).expect("Failed to parse template_config.json");
 
     let mapped = parsed
         .into_iter()
@@ -23,32 +27,12 @@ pub fn load_template_config() {
     TEMPLATE_MAP.set(mapped).expect("TEMPLATE_MAP already set");
 }
 
-
-
-/// Enum to select a template
-// pub enum i32 {
-//     Default = 0,
-//     CommandLog = 1,
-//     Frontend = 2,
-//     Special = 3,
-//     Bots=4,
-// }
-
-// impl i32 {
-//     fn from_int(value: i32) -> Self {
-//         match value {
-//             1 => i32::CommandLog,
-//             2 => i32::Frontend,
-//             3 => i32::Special,
-//             4 => i32::Bots,            
-//             _ => i32::Default,
-//         }
-//     }
-// }
-
 pub trait RenderHtml {
     fn render_html(self, template_type: i32) -> String;
-    fn render_html_from_int(self, template_type: i32) -> String  where Self: Sized{
+    fn render_html_from_int(self, template_type: i32) -> String
+    where
+        Self: Sized,
+    {
         self.render_html(template_type)
     }
 }
@@ -98,8 +82,6 @@ impl RenderHtml for &str {
     }
 }
 
-
-
 /// An HTML response.
 ///
 /// This struct will automatically add a link to the 98.css stylesheet
@@ -115,17 +97,17 @@ where
     fn into_response(self) -> Response {
         let html = self.0.into(); // Convert the content to a string
 
-
         // Return the HTML wrapped in the correct content type
         (
-            [(header::CONTENT_TYPE, HeaderValue::from_static(TEXT_HTML_UTF_8.as_ref()))],
+            [(
+                header::CONTENT_TYPE,
+                HeaderValue::from_static(TEXT_HTML_UTF_8.as_ref()),
+            )],
             html,
         )
             .into_response()
     }
 }
-
-
 
 impl<T> From<T> for HtmlV<T> {
     fn from(inner: T) -> Self {

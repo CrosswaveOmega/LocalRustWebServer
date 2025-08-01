@@ -1,10 +1,10 @@
 /*
-self signed certifications here, incase https on a local network is 
+self signed certifications here, incase https on a local network is
 wanted.
 */
+use crate::config::CertMode;
 use axum_server::tls_rustls::RustlsConfig;
 use std::path::PathBuf;
-use crate::config::CertMode;
 
 // Load TLS config based on certificate mode
 // This is a work in progress.
@@ -25,6 +25,5 @@ pub async fn load_tls_config(mode: &CertMode) -> RustlsConfig {
         .expect("Failed to load manual certificate"),
 
         CertMode::None => panic!("No TLS config, fallback to HTTP"), // No TLS config, fallback to HTTP
-
     }
 }
