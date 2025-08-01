@@ -53,7 +53,7 @@ impl RenderHtml for (&str, &str) {
 
         let template_path = format!("./templates/{}", template_name);
         let template_string = fs::read_to_string(&template_path)
-            .unwrap_or_else(|_| "<h1>Template Not Found</h1>".to_string());
+            .unwrap_or_else(|_| "{{ body|safe }}".to_string());
 
         template_string
             .replace("{{ title }}", self.0)
