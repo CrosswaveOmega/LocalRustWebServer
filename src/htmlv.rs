@@ -28,7 +28,6 @@ pub fn load_template_config() {
         println!("{}: {}", key, value);
     }
 
-    &mapped.insert(-1, "{{ body| }}".to_string());
     TEMPLATE_MAP.set(mapped).expect("TEMPLATE_MAP already set");
 }
 
