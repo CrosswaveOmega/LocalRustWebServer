@@ -30,6 +30,11 @@ pub enum RouteFunction {
         meta: RouteMeta,
         body: String,
     },
+    #[serde(rename = "help_page")]
+    HelpPage {
+        #[serde(flatten)]
+        meta: RouteMeta,
+    },
 
     #[serde(rename = "run_command")]
     RunCommand {

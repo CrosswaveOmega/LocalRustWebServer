@@ -5,9 +5,9 @@
         "body": "<h3>Welcome to the Local Site</h3>"
     },
     {
-        "function_type": "normal_page",
+        "function_type": "help_page",
         "route": "/help",
         "title": "Help Page",
-        "body": "help.html"
+        "description": "Automatically Generated Home Page."
     }
 ]
