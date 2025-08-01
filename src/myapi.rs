@@ -203,7 +203,7 @@ pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>) ->
             | RouteFunction::GetLogs { meta, .. } => meta,
         };
 
-        println!("{},{},{}", meta.route, meta.title, meta.description);
+        println!("{},{},{},{}", meta.route, meta.title, meta.description, meta.template_num);
         match route_func {
             RouteFunction::NormalPage { meta, body } => {
                 let title_clone = meta.title.clone();
