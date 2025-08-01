@@ -146,14 +146,14 @@ pub async fn get_logs_handler(
                 .collect::<Vec<_>>()
                 .join("\n");
 
-            HtmlV((title, format!("<ul>{}</ul>", log_lines)).render_html_from_int(1))
+            HtmlV((title, format!("<ul>{}</ul>", log_lines)).render_html_from_int(-1))
         }
         Ok(output) => {
             let error_message = String::from_utf8_lossy(&output.stderr).to_string();
-            HtmlV((title, format!("Error: {}", error_message)).render_html_from_int(1))
+            HtmlV((title, format!("Error: {}", error_message)).render_html_from_int(-1))
         }
         Err(e) => {
-            HtmlV((title, format!("<pre>Failed to run tail: {}</pre>", e)).render_html_from_int(1))
+            HtmlV((title, format!("<pre>Failed to run tail: {}</pre>", e)).render_html_from_int(-1))
         }
     }
 }
@@ -203,7 +203,10 @@ pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>) ->
             | RouteFunction::GetLogs { meta, .. } => meta,
         };
 
-        println!("{},{},{},{}", meta.route, meta.title, meta.description, meta.template_num);
+        println!(
+            "{},{},{},{}",
+            meta.route, meta.title, meta.description, meta.template_num
+        );
         match route_func {
             RouteFunction::NormalPage { meta, body } => {
                 let title_clone = meta.title.clone();

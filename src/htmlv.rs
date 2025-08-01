@@ -28,6 +28,7 @@ pub fn load_template_config() {
         println!("{}: {}", key, value);
     }
 
+    mapped.insert(-1, "{{ body| }}".to_string());
     TEMPLATE_MAP.set(mapped).expect("TEMPLATE_MAP already set");
 }
 
@@ -52,7 +53,6 @@ impl RenderHtml for (&str, &str) {
             .unwrap_or_else(|| "template.html".to_string());
 
         let template_path = format!("./templates/{}", template_name);
-        println!("{}",template_path);
         let template_string = fs::read_to_string(&template_path)
             .unwrap_or_else(|_| "<h1>Template Not Found</h1>".to_string());
 
