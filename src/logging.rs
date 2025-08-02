@@ -14,7 +14,6 @@ use tracing::{error, info, warn};
 use tracing_subscriber::Layer;
 use tracing_subscriber::fmt::time::UtcTime;
 
-
 use std::{
     fs,
     io::{self, Write},
@@ -23,72 +22,98 @@ use std::{
     cmp::Reverse,
     time::{SystemTime, Duration},
 };
+use std::io::{Seek, SeekFrom};
 
-pub struct ManagedLogWriter {
-    inner: tracing_appender::rolling::RollingFileAppender,
-    last_cleanup: Mutex<SystemTime>,
-    dir: PathBuf,
+const MAX_LOG_SIZE: u64 = 8 * 1024 * 1024; // 8 MB
+const MAX_LOG_FILES: usize = 5;
+
+/// A file appender with the ability to rotate log files should they
+/// exceed a maximum size.
+///
+/// `SizeRotatingWriter` implements the [`std:io::Write` trait][write] and will
+/// block on write operations. It may be used with [`NonBlocking`] to perform
+/// writes without blocking the current thread.
+///
+/// `SizeRotatingWriter` does not implement the [`MakeWriter`]
+/// trait yet from `tracing-subscriber`, so it may also be used
+/// directly, without [`NonBlocking`].
+///
+/// [write]: std::io::Write
+/// [`NonBlocking`]: super::non_blocking::NonBlocking
+///
+pub struct SizeRotatingWriter {
+    base_path: PathBuf,
+    current_file: fs::File,
+    current_size: u64,
     prefix: String,
-    keep: usize,
 }
 
-impl ManagedLogWriter {
-    pub fn new(appender: tracing_appender::rolling::RollingFileAppender, dir: impl Into<PathBuf>, prefix: &str, keep: usize) -> Self {
-        Self {
-            inner: appender,
-            last_cleanup: Mutex::new(SystemTime::UNIX_EPOCH),
-            dir: dir.into(),
+impl SizeRotatingWriter {
+    pub fn new(log_dir: impl Into<PathBuf>, prefix: &str) -> io::Result<Self> {
+        let dir = log_dir.into();
+        fs::create_dir_all(&dir)?;
+
+        let path = dir.join(format!("{}.log", prefix));
+        let mut file = fs::OpenOptions::new().create(true).append(true).open(&path)?;
+
+        let size = file.seek(SeekFrom::End(0))?;
+
+        Ok(Self {
+            base_path: dir,
+            current_file: file,
+            current_size: size,
             prefix: prefix.to_string(),
-            keep,
-        }
+        })
     }
 
-    fn maybe_cleanup(&self) {
-        let mut last = self.last_cleanup.lock().unwrap();
-        let now = SystemTime::now();
+    fn rotate(&mut self) -> io::Result<()> {
+        // Close current file and rename with timestamp or number
+        let mut rotated_files: Vec<_> = fs::read_dir(&self.base_path)?
+            .filter_map(Result::ok)
+            .filter(|e| e.file_name().to_string_lossy().starts_with(&self.prefix))
+            .collect();
 
-        // Avoid running cleanup too often (e.g. only once every 10 minutes)
-        if now.duration_since(*last).unwrap_or(Duration::ZERO) < Duration::from_secs(600) {
-            return;
+        rotated_files.sort_by_key(|e| e.metadata().and_then(|m| m.modified()).unwrap_or(SystemTime::UNIX_EPOCH));
+        while rotated_files.len() >= MAX_LOG_FILES {
+            let oldest = rotated_files.remove(0);
+            let _ = fs::remove_file(oldest.path());
         }
 
-        *last = now;
+        let new_name = self
+            .base_path
+            .join(format!("{}.log", self.prefix));
+        let current_log = self.base_path.join(format!("{}.log", self.prefix));
 
-        // Run cleanup
-        if let Ok(entries) = fs::read_dir(&self.dir) {
-            let mut files: Vec<_> = entries
-                .filter_map(Result::ok)
-                .filter(|e| {
-                    e.file_type().map(|ft| ft.is_file()).unwrap_or(false)
-                        && e.file_name().to_string_lossy().starts_with(&self.prefix)
-                })
-                .collect();
+        fs::rename(&current_log, &new_name)?;
 
-            files.sort_by_key(|e| {
-                e.metadata()
-                    .and_then(|m| m.modified())
-                    .map(Reverse)
-                    .unwrap_or(Reverse(SystemTime::UNIX_EPOCH))
-            });
+        // Open new file
+        self.current_file = fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&current_log)?;
 
-            for entry in files.iter().skip(self.keep) {
-                let _ = fs::remove_file(entry.path());
-            }
-        }
+        self.current_size = 0;
+
+        Ok(())
     }
 }
 
-impl Write for ManagedLogWriter {
+impl Write for SizeRotatingWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.maybe_cleanup();
-        self.inner.write(buf)
+        if self.current_size + buf.len() as u64 > MAX_LOG_SIZE {
+            self.rotate()?;
+        }
+
+        let bytes_written = self.current_file.write(buf)?;
+        self.current_size += bytes_written as u64;
+        Ok(bytes_written)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.inner.flush()
+        self.current_file.flush()
     }
 }
-
 
 pub struct CustomFormatter<T> {
     pub timer: T,
@@ -124,17 +149,13 @@ where
 
 
 
-
+/// Setup the logging system
 pub fn init_logging() {
-    // Create a daily rotating file appender in a relative path
-    let file_appender = RollingFileAppender::new(Rotation::DAILY, "./logs", "my_app.log");
+    let writer = SizeRotatingWriter::new("./logs", "my_app").expect("Failed to init log writer");
+    let (non_blocking, guard) = tracing_appender::non_blocking(writer);
 
-    
-    let managed_writer = ManagedLogWriter::new(file_appender, "./logs", "applog", 5);
-    // Create a non-blocking writer and retain the guard to prevent early drop
-    let (non_blocking, guard) = tracing_appender::non_blocking(managed_writer);
 
-    // You must store this guard to keep the background logging thread alive
+    // Store the guard to keep the background logging thread alive
     // If dropped, logs will stop being written!
     Box::leak(Box::new(guard)); // <- safest simple method
 
