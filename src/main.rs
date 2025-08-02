@@ -46,11 +46,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 async fn main() {
     logging::init_logging();
     let config = load_or_create_config("config.yaml");
-
-    tracing::info!("This is an info message");
-    tracing::warn!("This is a warning message");
-    tracing::error!("This is an error message");
-
+    tracing::warn!("Starting up...");
     load_template_config();
     match config.cert_mode {
         CertMode::SelfSigned | CertMode::Manual => {

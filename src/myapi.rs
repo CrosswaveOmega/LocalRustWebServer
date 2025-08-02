@@ -24,15 +24,13 @@ use std::path::{Path, PathBuf};
 use std::thread;
 use tracing;
 
-
 /// Get all JSON files from dir_path and load them into RouteFunctions
 pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
-    
     let mut all_routes = Vec::new();
 
     tracing::info!("Scanning directory: {dir_path}");
 
-    // ===Load all .html files into a HashMap, and keep full file name as key ===
+    // ===lLoad all .html files into a HashMap, and keep full file name as key ===
     let mut html_map = HashMap::new();
     if let Ok(entries) = fs::read_dir(dir_path) {
         for entry in entries.flatten() {
@@ -113,6 +111,7 @@ async fn normal_page_template_handler(title: String, body: String, template: i32
     HtmlV((title, body).render_html_from_int(template))
 }
 
+// For the Log Get Handler:
 pub async fn get_logs_handler(
     Query(params): Query<HashMap<String, String>>,
     log_file_types: Option<Vec<String>>,
@@ -165,9 +164,9 @@ pub async fn get_logs_handler_wrapped(
     get_logs_handler(query, log_file_types, title).await
 }
 
-//
+/// Build up the body for a help page
+/// while taking in an array of RotueFunctions
 pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
-    /// Build up the body for a help page
     let mut html = String::from("<h3>Help Page</h3>\n<ul>\n");
 
     for route_func in route_functions {
@@ -190,8 +189,9 @@ pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
     html
 }
 
+/// Given a Router and a RouteFunction, add it to the router.
+/// Must pass in the help_text for the /help page.
 fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &str) -> Router {
-    ///Given a RouteFunction, add it to the router.
     let meta = match &route_func {
         RouteFunction::NormalPage { meta, .. }
         | RouteFunction::HelpPage { meta, .. }
@@ -201,7 +201,10 @@ fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &st
 
     tracing::info!(
         "{},{},{},{}",
-        meta.route, meta.title, meta.description, meta.template_num
+        meta.route,
+        meta.title,
+        meta.description,
+        meta.template_num
     );
 
     match route_func {
@@ -220,8 +223,8 @@ fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &st
                 }),
             )
         }
+        //Help Page
         RouteFunction::HelpPage { meta } => {
-            ///Help Page
             let title_clone = meta.title.clone();
             let body_clone = help_text.to_string(); // captured by closure
             let template_num = 0;

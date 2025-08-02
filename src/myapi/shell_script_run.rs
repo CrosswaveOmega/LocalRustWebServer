@@ -74,7 +74,12 @@ pub async fn run_command_handler(
     let lock_file_path = shellexpand::tilde(&lock).to_string();
     let log_file_path = shellexpand::tilde(&log).to_string();
     let script_file_path = shellexpand::tilde(&script).to_string();
-    tracing::info!("calling {},{},{}",lock_file_path,log_file_path,script_file_path);
+    tracing::info!(
+        "calling {},{},{}",
+        lock_file_path,
+        log_file_path,
+        script_file_path
+    );
     match try_acquire_lock(&lock_file_path).await {
         Ok(true) => {
             let handle = tokio::spawn(async move {

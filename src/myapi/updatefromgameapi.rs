@@ -13,8 +13,8 @@ use std::env;
 use std::fmt::Debug;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tracing;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 //
 // --- Query Parameters ---
@@ -34,9 +34,8 @@ pub struct ApiProxyParams {
 //
 const API_BASE_URL: &str = "https://api.live.prod.thehelldiversgame.com/api";
 
-async fn fetch_raw_json(client: &Client, url: &str) -> Option<Value> {
-    
 /// Fetches and returns JSON as a raw `serde_json::Value`.
+async fn fetch_raw_json(client: &Client, url: &str) -> Option<Value> {
     match client
         .get(url)
         .header(header::CONTENT_TYPE, "application/json")
@@ -62,8 +61,9 @@ async fn fetch_raw_json(client: &Client, url: &str) -> Option<Value> {
         }
     }
 }
+
+///Call the api
 pub async fn api_proxy(Query(params): Query<ApiProxyParams>) -> impl IntoResponse {
-    ///Call the api
     let client = Client::new();
     let endpoint = params.endpoint.to_lowercase();
 

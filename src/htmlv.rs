@@ -1,4 +1,3 @@
-
 use axum::http::{HeaderValue, header};
 use axum::response::{IntoResponse, Response};
 use mime::TEXT_HTML_UTF_8;
@@ -20,7 +19,7 @@ static TEMPLATE_MAP: OnceLock<HashMap<i32, String>> = OnceLock::new();
 /// The function will panic if the config file is missing or malformed.
 /// It will also panic if `TEMPLATE_MAP` has already been set.
 pub fn load_template_config() {
-
+    tracing::info!("Loading Templates from /templates");
     if !Path::new("./templates").exists() {
         eprintln!("Warning: ./templates is not a valid path.");
     }
@@ -67,7 +66,7 @@ impl RenderHtml for (&str, &str) {
             .and_then(|m| m.get(&template_id))
             .cloned()
             .unwrap_or_else(|| "template.html".to_string());
-
+        //Todo, look into tera
         let template_path = format!("./templates/{}", template_name);
         let template_string =
             fs::read_to_string(&template_path).unwrap_or_else(|_| "{{ body|safe }}".to_string());

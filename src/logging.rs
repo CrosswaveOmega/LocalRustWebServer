@@ -1,28 +1,23 @@
-use tracing::Subscriber;
-use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_subscriber::{
-    fmt,
-    layer::SubscriberExt,
-    util::SubscriberInitExt,
-    filter::LevelFilter,
-};
-use tracing_subscriber::fmt::format::{Writer, FormatFields, FormatEvent};
-use tracing_subscriber::registry::LookupSpan;
 use tracing::Event;
-use tracing_subscriber::fmt::{time::FormatTime};
+use tracing::Subscriber;
 use tracing::{error, info, warn};
+use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::Layer;
+use tracing_subscriber::fmt::format::{FormatEvent, FormatFields, Writer};
+use tracing_subscriber::fmt::time::FormatTime;
 use tracing_subscriber::fmt::time::UtcTime;
+use tracing_subscriber::registry::LookupSpan;
+use tracing_subscriber::{filter::LevelFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
+use std::io::{Seek, SeekFrom};
 use std::{
+    cmp::Reverse,
     fs,
     io::{self, Write},
     path::{Path, PathBuf},
-    sync::{Mutex, Arc},
-    cmp::Reverse,
-    time::{SystemTime, Duration},
+    sync::{Arc, Mutex},
+    time::{Duration, SystemTime},
 };
-use std::io::{Seek, SeekFrom};
 
 const MAX_LOG_SIZE: u64 = 8 * 1024 * 1024; // 8 MB
 const MAX_LOG_FILES: usize = 5;
@@ -54,7 +49,10 @@ impl SizeRotatingWriter {
         fs::create_dir_all(&dir)?;
 
         let path = dir.join(format!("{}.log", prefix));
-        let mut file = fs::OpenOptions::new().create(true).append(true).open(&path)?;
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)?;
 
         let size = file.seek(SeekFrom::End(0))?;
 
@@ -73,15 +71,17 @@ impl SizeRotatingWriter {
             .filter(|e| e.file_name().to_string_lossy().starts_with(&self.prefix))
             .collect();
 
-        rotated_files.sort_by_key(|e| e.metadata().and_then(|m| m.modified()).unwrap_or(SystemTime::UNIX_EPOCH));
+        rotated_files.sort_by_key(|e| {
+            e.metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(SystemTime::UNIX_EPOCH)
+        });
         while rotated_files.len() >= MAX_LOG_FILES {
             let oldest = rotated_files.remove(0);
             let _ = fs::remove_file(oldest.path());
         }
 
-        let new_name = self
-            .base_path
-            .join(format!("{}.log", self.prefix));
+        let new_name = self.base_path.join(format!("{}.log", self.prefix));
         let current_log = self.base_path.join(format!("{}.log", self.prefix));
 
         fs::rename(&current_log, &new_name)?;
@@ -147,27 +147,26 @@ where
     }
 }
 
-
-
 /// Setup the logging system
 pub fn init_logging() {
     let writer = SizeRotatingWriter::new("./logs", "my_app").expect("Failed to init log writer");
     let (non_blocking, guard) = tracing_appender::non_blocking(writer);
 
-
     // Store the guard to keep the background logging thread alive
     // If dropped, logs will stop being written!
     Box::leak(Box::new(guard)); // <- safest simple method
 
-    let custom_format = CustomFormatter { timer: UtcTime::rfc_3339() };
+    let custom_format = CustomFormatter {
+        timer: UtcTime::rfc_3339(),
+    };
     tracing_subscriber::registry()
         .with(
             fmt::layer()
-            .with_writer(non_blocking)
-            .with_target(true) // includes module path
-            .with_ansi(false)  // disable colors for file
-            .event_format(custom_format)
-            .with_filter(LevelFilter::INFO),
+                .with_writer(non_blocking)
+                .with_target(true) // includes module path
+                .with_ansi(false) // disable colors for file
+                .event_format(custom_format)
+                .with_filter(LevelFilter::INFO),
         )
         .init();
 
