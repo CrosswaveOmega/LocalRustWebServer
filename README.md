@@ -1,11 +1,12 @@
 # A Local Rust Web Server
 
-A simple web server meant for accessing a Raspberry Pi
-on my local network, and then running specific commands
-on said rpi.
+A simple, low profile web server meant for accessing a Raspberry Pi
+on a local network, and then running specific commands
+on said Raspberry Pi.
 
 It uses a series of json and html files to define
-and create endpoints.
+and create endpoints and return formatted html
+on each endpoint.
 
 ## Basic Overview
 
@@ -22,22 +23,10 @@ Each valid route object is formatted with the following values:
 
 ### Templates.
 
-Each "template" is just a html file that has a 'title' substituted in.
-
-
+Each "template" is just a html file that has a 'title' and 'body' substituted in.
 
 
 ## Current features
 * Tail logs
-* Frontend for 
+* Frontend for an api proxy.
 
-## Examples
-
-Add this somewhere in jsonroutes
-```json
-{"function_type": "normal_page",
-"route": "/help",
-"title": "Help Page",
-"body": "help.html"
-}
-```
