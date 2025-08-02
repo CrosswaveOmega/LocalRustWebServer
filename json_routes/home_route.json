@@ -2,7 +2,8 @@
         "function_type": "normal_page",
         "route": "/",
         "title": "Home Page",
-        "body": "<h3>Welcome to the Local Site</h3>"
+        "body": "<h3>Welcome to the Local Site</h3>",
+        "description": "The home page"
     },
     {
         "function_type": "help_page",

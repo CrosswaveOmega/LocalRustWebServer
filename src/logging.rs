@@ -1,7 +1,6 @@
 use tracing::Event;
 use tracing::Subscriber;
 use tracing::{error, info, warn};
-use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::Layer;
 use tracing_subscriber::fmt::format::{FormatEvent, FormatFields, Writer};
 use tracing_subscriber::fmt::time::FormatTime;
