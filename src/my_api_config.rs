@@ -7,15 +7,20 @@ use serde::Deserialize;
 ///
 
 fn default_description() -> String {
-    "No description".to_string()
+    "No description, please set one for this route in /json_routes".to_string()
 }
-/// Base class with all the common parameters for each route.
-///
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct RouteMeta {
+    /// Base class with all the common parameters for each route.
+    /// those being
+    /// route- the get route
+    /// title- the title
+    /// description- the description, seen on the help page
+    /// template_num- the html template number to use.  by default, it's 0.
     pub route: String,
     pub title: String,
-    #[serde(default = "default_description")] // Set a default description
+    #[serde(default = "default_description")]
     pub description: String,
     #[serde(default)]
     pub template_num: i32,
@@ -24,20 +29,39 @@ pub struct RouteMeta {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "function_type")]
 pub enum RouteFunction {
+    /// Enum for selecting the route function based on
+    /// the function_type param
+
     #[serde(rename = "normal_page")]
     NormalPage {
+        /// Normal page.  Just send in a usually body
+        /// and/or optionally a special html template.
+        ///
+        /// body- a String to display.
         #[serde(flatten)]
         meta: RouteMeta,
         body: String,
     },
     #[serde(rename = "help_page")]
     HelpPage {
+        /// Automatically generated help page
+        /// populated using the route, title, and description
+        /// of each item.
+        ///
         #[serde(flatten)]
         meta: RouteMeta,
     },
 
     #[serde(rename = "run_command")]
     RunCommand {
+        /// For running a specific .sh script.  
+        ///
+        /// Intended for use on linux systems.
+        ///
+        ///
+        /// lock_file_path- required, a file path to an aquirable lock file.
+        /// log_file_path- required, file path to a specific log file that the script's output will be piped to.
+        /// script_file_path- required, a .sh file to be run in bash.
         #[serde(flatten)]
         meta: RouteMeta,
         lock_file_path: String,
@@ -47,50 +71,13 @@ pub enum RouteFunction {
 
     #[serde(rename = "get_logs")]
     GetLogs {
+        /// use tail on a specific log file
+        /// within the log_file_types list.
+        ///
+        /// log_file_types- list of log file paths.
+        /// /endpoint?log=integerhere
         #[serde(flatten)]
         meta: RouteMeta,
         log_file_types: Option<Vec<String>>,
     },
 }
-/*
-#[derive(Deserialize, Debug, Clone)]
-#[serde(tag = "function_type")]
-pub enum RouteFunction {
-    /// Static page with body content.
-    #[serde(rename = "normal_page")]
-    NormalPage {
-        route: String,
-        title: String,
-        body: String,
-    },
-
-    /// Load in a specific HTML template.
-    #[serde(rename = "normal_page_template")]
-    NormalPageTemplate {
-        route: String,
-        title: String,
-        body: String,
-        template_num: i32,
-    },
-
-    /// Run a command with lock and log files.
-    #[serde(rename = "run_command")]
-    RunCommand {
-        route: String,
-        title: String,
-        lock_file_path: String,
-        log_file_path: String,
-        script_file_path: String,
-        #[serde(default)]
-        template_num: i32,
-    },
-
-    /// Fetch logs, with optional log file types list.
-    #[serde(rename = "get_logs")]
-    GetLogs {
-        route: String,
-        title: String,
-        log_file_types: Option<Vec<String>>,
-    },
-    // Add more variants as needed...
-}*/

@@ -12,9 +12,9 @@ use std::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CertMode {
-    SelfSigned,  //self_signed
-    Manual,      //manual
-    None,        //none
+    SelfSigned, //self_signed
+    Manual,     //manual
+    None,       //none
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

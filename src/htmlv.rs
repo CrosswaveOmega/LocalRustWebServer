@@ -1,3 +1,4 @@
+
 use axum::http::{HeaderValue, header};
 use axum::response::{IntoResponse, Response};
 use mime::TEXT_HTML_UTF_8;
@@ -5,10 +6,19 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::OnceLock;
-static TEMPLATE_MAP: OnceLock<HashMap<i32, String>> = OnceLock::new();
+use tracing;
 
-/// Loads template config from ./templates/template_config.json into global map.
+static TEMPLATE_MAP: OnceLock<HashMap<i32, String>> = OnceLock::new();
 pub fn load_template_config() {
+    /// Loads the template configuration from `./templates/template_config.json`
+    /// into the global `TEMPLATE_MAP`.
+    ///
+    /// This function expects the JSON file to map stringified integers (as keys)
+    /// to template file names. Keys are parsed into `i32`, and only valid entries
+    /// are included in the final map.
+    ///
+    /// The function will panic if the config file is missing or malformed.
+    /// It will also panic if `TEMPLATE_MAP` has already been set.
     if !Path::new("./templates").exists() {
         eprintln!("Warning: ./templates is not a valid path.");
     }
@@ -25,13 +35,17 @@ pub fn load_template_config() {
         .collect::<HashMap<_, _>>();
 
     for (key, value) in &mapped {
-        println!("{}: {}", key, value);
+        tracing::info!("{}: {}", key, value);
     }
 
     TEMPLATE_MAP.set(mapped).expect("TEMPLATE_MAP already set");
 }
 
 pub trait RenderHtml {
+    /// Trait for rendering a value into an HTML string using a specified template.
+    ///
+    /// This trait supports dynamic HTML generation using a shared template system.
+    /// Templates are populated by substituting `{{ title }}` and `{{ body }}` markers.
     fn render_html(self, template_type: i32) -> String;
     fn render_html_from_int(self, template_type: i32) -> String
     where
@@ -41,6 +55,7 @@ pub trait RenderHtml {
     }
 }
 
+/// Implementations for RenderHTML with different types of strings
 impl RenderHtml for (&str, &str) {
     fn render_html(self, template_type: i32) -> String {
         let template_id = template_type;
@@ -52,8 +67,8 @@ impl RenderHtml for (&str, &str) {
             .unwrap_or_else(|| "template.html".to_string());
 
         let template_path = format!("./templates/{}", template_name);
-        let template_string = fs::read_to_string(&template_path)
-            .unwrap_or_else(|_| "{{ body|safe }}".to_string());
+        let template_string =
+            fs::read_to_string(&template_path).unwrap_or_else(|_| "{{ body|safe }}".to_string());
 
         template_string
             .replace("{{ title }}", self.0)
@@ -99,9 +114,7 @@ where
     T: Into<String>,
 {
     fn into_response(self) -> Response {
-        let html = self.0.into(); // Convert the content to a string
-
-        // Return the HTML wrapped in the correct content type
+        let html = self.0.into();
         (
             [(
                 header::CONTENT_TYPE,

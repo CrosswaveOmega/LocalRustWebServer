@@ -15,6 +15,7 @@
 mod certs;
 mod config;
 mod htmlv;
+mod logging;
 mod my_api_config;
 mod myapi;
 mod procmon;
@@ -37,19 +38,18 @@ use htmlv::load_template_config;
 use myapi::routes;
 use std::net::{IpAddr, SocketAddr};
 use tower_http::trace::TraceLayer;
+
+use tracing;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| format!("{}=debug", env!("CARGO_CRATE_NAME")).into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
-
+    logging::init_logging();
     let config = load_or_create_config("config.yaml");
+
+    tracing::info!("This is an info message");
+    tracing::warn!("This is a warning message");
+    tracing::error!("This is an error message");
 
     load_template_config();
     match config.cert_mode {

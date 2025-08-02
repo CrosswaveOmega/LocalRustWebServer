@@ -1,5 +1,5 @@
 /*
-self signed certifications here, incase https on a local network is
+Self signed certification configuration, incase https on a local network is
 wanted.
 */
 use crate::config::CertMode;

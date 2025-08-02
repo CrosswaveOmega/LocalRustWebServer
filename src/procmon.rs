@@ -13,14 +13,13 @@ use serde::Serialize;
 use std::fs;
 use std::process::Command;
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
-use tokio;
 use tokio::sync::Mutex;
 
 use once_cell::sync::Lazy;
 
 #[derive(Serialize)]
 struct SystemUsage {
-    cpu_usage: Vec<f32>, // One entry per core
+    cpu_usage: Vec<f32>,
     ram_usage: f32,
     swap_usage: f32,
 }

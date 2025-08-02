@@ -22,16 +22,15 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::thread;
+use tracing;
 
-fn load_routes_from_json(path: &str) -> Vec<RouteFunction> {
-    let contents = fs::read_to_string(path).expect("Failed to read routes JSON file");
-    serde_json::from_str(&contents).expect("Failed to parse routes JSON")
-}
 
+/// Get all JSON files from dir_path and load them into RouteFunctions
 pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
+    
     let mut all_routes = Vec::new();
 
-    println!("Scanning directory: {dir_path}");
+    tracing::info!("Scanning directory: {dir_path}");
 
     // ===Load all .html files into a HashMap, and keep full file name as key ===
     let mut html_map = HashMap::new();
@@ -43,7 +42,7 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
                 if let Some(filename) = path.file_name().and_then(|s| s.to_str()) {
                     let content = fs::read_to_string(&path)
                         .unwrap_or_else(|_| panic!("Failed to read HTML file: {:?}", path));
-                    println!("Loaded HTML file: {}", filename);
+                    tracing::info!("Loaded HTML file: {}", filename);
                     html_map.insert(filename.to_string(), content);
                 }
             }
@@ -65,11 +64,11 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
         })
         .collect();
 
-    println!("Found {} JSON file(s).", json_paths.len());
+    tracing::info!("Found {} JSON file(s).", json_paths.len());
 
     // ===process each JSON file===
     for json_path in json_paths {
-        println!("Processing JSON file: {:?}", json_path);
+        tracing::info!("Processing JSON file: {:?}", json_path);
 
         let json_content = fs::read_to_string(&json_path)
             .unwrap_or_else(|_| panic!("Failed to read JSON file: {:?}", json_path));
@@ -87,7 +86,7 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
         for mut entry in route_entries {
             if let Some(body_key) = entry.get("body").and_then(|b| b.as_str()) {
                 if let Some(body_content) = html_map.get(body_key) {
-                    println!("Replacing 'body' with content from file: {}", body_key);
+                    tracing::info!("Replacing 'body' with content from file: {}", body_key);
                     entry["body"] = Value::String(body_content.clone());
                 }
             }
@@ -100,7 +99,7 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
         }
     }
 
-    println!("Loaded {} route(s).", all_routes.len());
+    tracing::info!("Loaded {} route(s).", all_routes.len());
     all_routes
 }
 
@@ -133,7 +132,7 @@ pub async fn get_logs_handler(
     // Run tail command
     let output = Command::new("tail")
         .arg("-n")
-        .arg("100")
+        .arg("50")
         .arg(log_file_path)
         .output();
 
@@ -168,7 +167,7 @@ pub async fn get_logs_handler_wrapped(
 
 //
 pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
-    /// Build up the body for a help Page
+    /// Build up the body for a help page
     let mut html = String::from("<h3>Help Page</h3>\n<ul>\n");
 
     for route_func in route_functions {
@@ -191,92 +190,95 @@ pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
     html
 }
 
+fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &str) -> Router {
+    ///Given a RouteFunction, add it to the router.
+    let meta = match &route_func {
+        RouteFunction::NormalPage { meta, .. }
+        | RouteFunction::HelpPage { meta, .. }
+        | RouteFunction::RunCommand { meta, .. }
+        | RouteFunction::GetLogs { meta, .. } => meta,
+    };
+
+    tracing::info!(
+        "{},{},{},{}",
+        meta.route, meta.title, meta.description, meta.template_num
+    );
+
+    match route_func {
+        RouteFunction::NormalPage { meta, body } => {
+            let title_clone = meta.title.clone();
+            let body_clone = body.clone();
+            let template_num = meta.template_num;
+            router.route(
+                &meta.route,
+                get(move || {
+                    normal_page_template_handler(
+                        title_clone.clone(),
+                        body_clone.clone(),
+                        template_num,
+                    )
+                }),
+            )
+        }
+        RouteFunction::HelpPage { meta } => {
+            ///Help Page
+            let title_clone = meta.title.clone();
+            let body_clone = help_text.to_string(); // captured by closure
+            let template_num = 0;
+            router.route(
+                &meta.route,
+                get(move || {
+                    normal_page_template_handler(
+                        title_clone.clone(),
+                        body_clone.clone(),
+                        template_num,
+                    )
+                }),
+            )
+        }
+        RouteFunction::RunCommand {
+            meta,
+            lock_file_path,
+            log_file_path,
+            script_file_path,
+        } => {
+            let lock_clone = lock_file_path.clone();
+            let log_clone = log_file_path.clone();
+            let script_clone = script_file_path.clone();
+            let title_clone = meta.title.clone();
+            router.route(
+                &meta.route,
+                get(move || {
+                    run_command_handler(
+                        lock_clone.clone(),
+                        log_clone.clone(),
+                        script_clone.clone(),
+                        title_clone.clone(),
+                        meta.template_num,
+                    )
+                }),
+            )
+        }
+        RouteFunction::GetLogs {
+            meta,
+            log_file_types,
+        } => {
+            let title = meta.title.clone();
+            let log_types = log_file_types.clone();
+            router.route(
+                &meta.route,
+                get(move |query| get_logs_handler_wrapped(query, log_types.clone(), title.clone())),
+            )
+        }
+    }
+}
+
 pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>) -> Router {
     let mut router = Router::new();
-
     let help_text = build_help_page_html(route_functions.clone());
+
     for route_func in route_functions {
-        let meta = match &route_func {
-            RouteFunction::NormalPage { meta, .. }
-            | RouteFunction::HelpPage { meta, .. }
-            | RouteFunction::RunCommand { meta, .. }
-            | RouteFunction::GetLogs { meta, .. } => meta,
-        };
-
-        println!(
-            "{},{},{},{}",
-            meta.route, meta.title, meta.description, meta.template_num
-        );
-        match route_func {
-            RouteFunction::NormalPage { meta, body } => {
-                let title_clone = meta.title.clone();
-                let body_clone = body.clone();
-                let template_num = meta.template_num;
-                router = router.route(
-                    &meta.route,
-                    get(move || {
-                        normal_page_template_handler(
-                            title_clone.clone(),
-                            body_clone.clone(),
-                            template_num.clone(),
-                        )
-                    }),
-                );
-            }
-            RouteFunction::HelpPage { meta } => {
-                let title_clone = meta.title.clone();
-                let body_clone = help_text.clone();
-                let template_num = 0;
-                router = router.route(
-                    &meta.route,
-                    get(move || {
-                        normal_page_template_handler(
-                            title_clone.clone(),
-                            body_clone.clone(),
-                            template_num.clone(),
-                        )
-                    }),
-                );
-            }
-
-            RouteFunction::RunCommand {
-                meta,
-                lock_file_path,
-                log_file_path,
-                script_file_path,
-            } => {
-                let lock_clone = lock_file_path.clone();
-                let log_clone = log_file_path.clone();
-                let script_clone = script_file_path.clone();
-                let title_clone = meta.title.clone();
-                router = router.route(
-                    &meta.route,
-                    get(move || {
-                        run_command_handler(
-                            lock_clone.clone(),
-                            log_clone.clone(),
-                            script_clone.clone(),
-                            title_clone.clone(),
-                            meta.template_num,
-                        )
-                    }),
-                );
-            }
-
-            RouteFunction::GetLogs {
-                meta,
-                log_file_types,
-            } => {
-                let title = meta.title.clone();
-                let log_types = log_file_types.clone();
-                router = router.route(
-                    &meta.route,
-                    get(move |query| {
-                        get_logs_handler_wrapped(query, log_types.clone(), title.clone())
-                    }),
-                );
-            }
-        }
+        router = add_route_to_router(router, route_func, &help_text);
     }
 
     router
