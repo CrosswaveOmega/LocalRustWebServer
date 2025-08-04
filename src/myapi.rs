@@ -313,7 +313,5 @@ pub fn routes() -> Router {
         // MANUAL ROUTES.
         // Extension 1, System Resource Monitor.
         .route("/procmon", get(system_usage_handler))
-        // Extension 2, Game Api caller.
-        //.route("/api-proxy", get(api_proxy))
         .nest_service("/static", ServeDir::new("statics"))
 }
