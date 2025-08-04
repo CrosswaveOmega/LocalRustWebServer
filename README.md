@@ -53,16 +53,12 @@ Templates are referenced by their integer ID in `template_config.json`, for exam
 *  Serve static or dynamic HTML pages
 *  Run shell commands from the browser
 *  Tail log files and stream output
-*  Basic frontend support for proxying API data
+*  Basic support for calling external APIs
 
----
+## Installion
+1. Clone this repo
+2. run cargo build --release
+3. configure json_routes and templates to your liking
 
-## Example Use Case
-
-Access the server at `http://raspberrypi.local/`, click into specific routes defined via JSON, and:
-
-* View system status pages
-* Run shell scripts via a simple interface
-* Check log files directly from the browser
 
 ---
