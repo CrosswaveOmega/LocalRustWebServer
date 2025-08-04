@@ -1,0 +1,24 @@
+[{
+        "function_type": "normal_page",
+        "route": "/thisweather",
+        "title": "Weather",
+        "description": "The Weather from OpenMeteo, formatted.",
+        "body": "<p>Front end</p>",
+        "template_num": 1
+    },
+    {
+        "function_type": "call_api",
+        "route": "/get_weather",
+        "title": "OpenMeteo",
+        "description": "Get the weather for some place.  You must include a valid latitude and longitude",
+        "base_url": "https://api.open-meteo.com/v1",
+        "endpoints": {
+            "forecast": {
+                "path": "/forecast",
+                "default_parameters": {
+                    "current": "apparent_temperature,is_day,relative_humidity_2m,temperature_2m,wind_direction_10m,wind_speed_10m,wind_gusts_10m,cloud_cover,pressure_msl,weather_code,surface_pressure,precipitation,rain,showers,snowfall"
+                }
+            }
+        }
+    }
+]

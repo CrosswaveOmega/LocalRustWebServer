@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="/static/98.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Api Frontend</title>
+    <script>
+        async function fetchWeatherMadrid() {
+            const lat = 40.4168;
+            const lon = -3.7038;
+
+            try {
+
+                let response = await fetch('/get_weather?endpoint=' + encodeURIComponent('forecast') + '&latitude=' + encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lon) + "&current=apparent_temperature,is_day,relative_humidity_2m,temperature_2m,wind_direction_10m,wind_speed_10m,wind_gusts_10m,cloud_cover,pressure_msl,weather_code,surface_pressure,precipitation,rain,showers,snowfall&timezone=auto");
+                const data = await response.json();
+
+                // Clear tabs
+                document.getElementById('tablist').innerHTML = '';
+                document.getElementById('tabcontent').innerHTML = renderWeather(data);
+            } catch (error) {
+                console.error('Failed to fetch weather:', error);
+                document.getElementById('tabcontent').innerHTML = 'Error fetching weather data.';
+            }
+        }
+
+        // Render current weather details into readable HTML
+        function renderWeather(data) {
+            console.log(data)
+            const current = data.current;
+            const units = data.current_units;
+
+            return `
+        <h2>Weather in Madrid</h2>
+        <ul>
+            <li><strong>Time:</strong> ${current.time}</li>
+            <li><strong>Temperature:</strong> ${current.temperature_2m} ${units.temperature_2m}</li>
+            <li><strong>Feels Like:</strong> ${current.apparent_temperature} ${units.apparent_temperature}</li>
+            <li><strong>Humidity:</strong> ${current.relative_humidity_2m} ${units.relative_humidity_2m}</li>
+            <li><strong>Wind Speed:</strong> ${current.wind_speed_10m} ${units.wind_speed_10m}</li>
+            <li><strong>Wind Gusts:</strong> ${current.wind_gusts_10m} ${units.wind_gusts_10m}</li>
+            <li><strong>Cloud Cover:</strong> ${current.cloud_cover} ${units.cloud_cover}</li>
+            <li><strong>Pressure:</strong> ${current.pressure_msl} ${units.pressure_msl}</li>
+            <li><strong>Weather Code:</strong> ${current.weather_code}</li>
+        </ul>`;
+        }
+
+
+        // Create a tab control from the top-level fields of the data.
+        function createTabsFromData(data) {
+            const tablistContainer = document.getElementById('tablist');
+            const tabcontent = document.getElementById('tabcontent');
+            tablistContainer.innerHTML = ''; // Clear any previous tabs.
+
+            const keys = Object.keys(data);
+            const tabGroups = [];
+            let currentRow = document.createElement('menu');
+            currentRow.setAttribute('role', 'tablist');
+            currentRow.classList.add('multirows');
+
+            tabGroups.push(currentRow);
+            tablistContainer.appendChild(currentRow);
+
+            keys.forEach((key, index) => {
+                const li = document.createElement('li');
+                li.setAttribute('role', 'tab');
+                li.innerHTML = `<a href="#tabs">${key}</a>`;
+
+                // For the first tab, mark it as active and display its content.
+                if (index === 0) {
+                    li.setAttribute('aria-selected', 'true');
+                    tabcontent.innerHTML = renderData(data[key]);
+                }
+
+                // Add click event to update the active tab and content.
+                li.addEventListener('click', function() {
+                    // Remove aria-selected from all tabs.
+                    document.querySelectorAll('[role="tab"]').forEach(tab => tab.removeAttribute('aria-selected'));
+                    // Mark this tab as selected.
+                    li.setAttribute('aria-selected', 'true');
+                    // Display pretty printed JSON for the selected key.
+                    tabcontent.innerHTML = renderData(data[key]);
+                    makeTableInteractive();
+                });
+
+                currentRow.appendChild(li);
+
+                console.log(tablistContainer.offsetWidth, currentRow.scrollWidth, li.scrollWidth)
+
+                // Check if adding this tab exceeds available width
+                console.log(tablistContainer.offsetWidth, currentRow.scrollWidth, li.scrollWidth);
+                if (tablistContainer.offsetWidth < currentRow.scrollWidth) {
+                    // Remove from current row and move to a new one
+                    currentRow.removeChild(li);
+                    currentRow = document.createElement('menu');
+                    currentRow.setAttribute('role', 'tablist');
+                    currentRow.classList.add('multirows');
+                    tabGroups.push(currentRow);
+                    tablistContainer.appendChild(currentRow);
+                    currentRow.appendChild(li);
+                }
+            });
+        }
+
+        // Render data based on its type:
+        // - If an array of objects, use a table view.
+        // - If an object, use an unordered list.
+        // - Otherwise, pretty-print the JSON.
+        function renderData(data) {
+            if (Array.isArray(data)) {
+                if (data.length > 0 && typeof data[0] === 'object' && data[0] !== null && !Array.isArray(data[0])) {
+                    return renderTable(data);
+                } else {
+                    return '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                }
+            } else if (typeof data === 'object' && data !== null) {
+                return renderUl(data);
+            } else {
+                return JSON.stringify(data, null, 2);
+            }
+        }
+
+        // Render an array of objects as a table.
+        function renderTable(arrayData) {
+            // Use keys from the first object (assuming all have similar structure)
+            let keys = Object.keys(arrayData[0]);
+            let html = '<div class="sunken-panel" style="height: auto; width: 100%;">';
+            html += '<table class="interactive">';
+            html += '<thead><tr>';
+            keys.forEach(key => {
+                html += '<th>' + key + '</th>';
+            });
+            html += '</tr></thead>';
+            html += '<tbody>';
+            arrayData.forEach(item => {
+                html += '<tr>';
+                keys.forEach(key => {
+                    let maxWidth = Math.max(...arrayData.map(row =>
+                        String(row[key] !== undefined ? row[key] : '').length
+                    ));
+
+                    if (typeof item[key] === 'string') {
+                        maxWidth = Math.max(
+                            ...item[key]
+                            .split(/(?:[.!?…]+|\r?\n)+/) // Split on sentence enders or newlines
+                            .map(sentence => sentence.trim().length) // Trim whitespace for accurate length
+                        );
+                    }
+
+                    console.log(maxWidth);
+
+                    // Ensure that the max width does not exceed 75% of the screen width
+                    html += `<td style="
+            white-space: pre-wrap;
+            word-break: break-word;
+            min-width: ${maxWidth}ch;
+            max-width: calc(75vw); /* 75% of viewport width */
+            overflow-wrap: break-word;
+        ">`;
+
+                    if (typeof item[key] === 'string') {
+                        // Replace newlines with HTML <br> for better formatting
+                        html += item[key].replace(/\n/g, '<br>');
+                    } else if (typeof item[key] === 'object' && item[key] !== null) {
+                        html += JSON.stringify(item[key]);
+                    } else {
+                        html += item[key] !== undefined ? item[key] : '';
+                    }
+
+                    html += '</td>';
+                });
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            return html;
+        }
+        // Function to render an object as a nested unordered list
+        function renderUl(objectData) {
+            let html = '<ul>';
+            for (let key in objectData) {
+                if (typeof objectData[key] === 'object' && objectData[key] !== null) {
+                    // Recursively render nested objects
+                    html += `<li><strong>${key}:</strong> ${renderUl(objectData[key])}</li>`;
+                } else {
+                    html += `<li><strong>${key}:</strong> ${objectData[key]}</li>`;
+                }
+            }
+            html += '</ul>';
+            return html;
+        }
+
+        // Attach interactivity to tables: clicking a row highlights it.
+        function makeTableInteractive() {
+            document.querySelectorAll('table.interactive').forEach(element => {
+                element.addEventListener('click', (event) => {
+                    const highlightedClass = 'highlighted';
+                    // Identify the clicked row (TR within TBODY)
+                    let newlySelectedRow = null;
+                    for (let el of event.composedPath()) {
+                        if (el.tagName === 'TR' && el.parentElement && el.parentElement.tagName === 'TBODY') {
+                            newlySelectedRow = el;
+                            break;
+                        }
+                    }
+                    if (newlySelectedRow) {
+                        // Remove highlight from all rows in this table.
+                        Array.from(newlySelectedRow.parentElement.children).forEach(row => {
+                            row.classList.remove(highlightedClass);
+                        });
+                        newlySelectedRow.classList.add(highlightedClass);
+                    }
+                });
+            });
+        }
+    </script>
+    <style>
+        /* Ensure the window resizes properly */
+        
+        .window {
+            width: 100%;
+            /* Adjust to screen size */
+            margin: auto;
+            /* Center the window */
+        }
+        
+        .window-body {
+            overflow-wrap: break-word;
+            /* Wrap long text */
+            word-wrap: break-word;
+        }
+        
+        .status-bar {
+            display: flex;
+            flex-wrap: wrap;
+            /* Allow status items to wrap */
+            justify-content: space-between;
+        }
+        
+        .status-bar-field {
+            flex: 1;
+            min-width: 100px;
+            /* Ensure they wrap on small screens */
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-bar-text">{{ title }}</div>
+            <div class="title-bar-controls">
+                <button aria-label="Help" class="help" onclick="location.href='/help'"></button>
+                <button aria-label="Minimize" class="minimize"></button>
+                <button aria-label="Maximize" class="maximize"></button>
+                <button aria-label="Close" class="close" onclick="location.href='/'"></button>
+
+            </div>
+        </div>
+        <div class="window-body">
+            <div class="button-container">
+                <button onclick="fetchWeatherMadrid()">Weather: Madrid</button>
+
+
+            </div>
+            <div>
+                <div id="tablist">
+                    <menu id="tablist" role="tablist">
+                        <li role="tab"><a href="#tabs">Desktop</a></li>
+                    </menu>
+                </div>
+                <div class="window" role="tabpanel">
+                    <div class="window-body" id="tabcontent">
+                        <p>the tab content</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="status-bar">
+
+            <p class="status-bar-field">Press F1 for help</p>
+            <p class="status-bar-field">Slide 1</p>
+            <p class="status-bar-field">CPU Usage: 14%</p>
+        </div>
+    </div>
+</body>
+
+</html>
