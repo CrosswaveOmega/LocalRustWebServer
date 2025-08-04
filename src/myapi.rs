@@ -111,7 +111,8 @@ async fn normal_page_template_handler(title: String, body: String, template: i32
     HtmlV((title, body).render_html_from_int(template))
 }
 
-// For the Log Get Handler:
+
+/// For the Log Get Handler:
 pub async fn get_logs_handler(
     Query(params): Query<HashMap<String, String>>,
     log_file_types: Option<Vec<String>>,
@@ -174,7 +175,8 @@ pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
             RouteFunction::NormalPage { meta, .. }
             | RouteFunction::HelpPage { meta, .. }
             | RouteFunction::RunCommand { meta, .. }
-            | RouteFunction::GetLogs { meta, .. } => meta,
+            | RouteFunction::GetLogs { meta, .. }
+            | RouteFunction::ApiProxy { meta, .. } => meta,
         };
 
         html.push_str(&format!(
@@ -189,6 +191,13 @@ pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
     html
 }
 
+async fn api_proxy_wrapped(
+    query: Query<HashMap<String, String>>,
+    base_url: String,
+) -> impl IntoResponse {
+    api_proxy(query,base_url).await
+}
+
 /// Given a Router and a RouteFunction, add it to the router.
 /// Must pass in the help_text for the /help page.
 fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &str) -> Router {
@@ -196,7 +205,8 @@ fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &st
         RouteFunction::NormalPage { meta, .. }
         | RouteFunction::HelpPage { meta, .. }
         | RouteFunction::RunCommand { meta, .. }
-        | RouteFunction::GetLogs { meta, .. } => meta,
+        | RouteFunction::GetLogs { meta, .. }
+        | RouteFunction::ApiProxy { meta, .. } => meta,
     };
 
     tracing::info!(
@@ -273,6 +283,16 @@ fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &st
                 get(move |query| get_logs_handler_wrapped(query, log_types.clone(), title.clone())),
             )
         }
+        RouteFunction::ApiProxy {
+            meta,
+            base_url,
+        } => {
+            let base_url_c = base_url.clone();
+            router.route(
+                &meta.route,
+            get(move |query| api_proxy_wrapped(query, base_url_c.clone())),
+            )
+        }
     }
 }
 
@@ -294,6 +314,6 @@ pub fn routes() -> Router {
         // Extension 1, System Resource Monitor.
         .route("/procmon", get(system_usage_handler))
         // Extension 2, Game Api caller.
-        .route("/api-proxy", get(api_proxy))
+        //.route("/api-proxy", get(api_proxy))
         .nest_service("/static", ServeDir::new("statics"))
 }

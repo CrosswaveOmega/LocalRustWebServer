@@ -1,5 +1,4 @@
 // an extension for Helldiver 2, a game I play.
-use crate::htmlv::{HtmlV, RenderHtml};
 use axum::{
     Router, extract::Query, response::Html, response::IntoResponse, response::Json, routing::get,
 };
@@ -9,6 +8,7 @@ use axum::http::StatusCode;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::env;
 use std::fmt::Debug;
 use std::path::Path;
@@ -31,8 +31,6 @@ pub struct ApiProxyParams {
 
 //
 // --- Constant Base URL ---
-//
-const API_BASE_URL: &str = "https://api.live.prod.thehelldiversgame.com/api";
 
 /// Fetches and returns JSON as a raw `serde_json::Value`.
 async fn fetch_raw_json(client: &Client, url: &str) -> Option<Value> {
@@ -62,115 +60,74 @@ async fn fetch_raw_json(client: &Client, url: &str) -> Option<Value> {
     }
 }
 
-///Call the api
-pub async fn api_proxy(Query(params): Query<ApiProxyParams>) -> impl IntoResponse {
-    let client = Client::new();
-    let endpoint = params.endpoint.to_lowercase();
 
-    match endpoint.as_str() {
+/// Call the API with dynamic endpoint and base URL.
+pub async fn api_proxy(Query(params): Query<HashMap<String, String>>, base_url: String) -> impl IntoResponse {
+    let client = Client::new();
+    let endpoint = match params.get("endpoint") {
+        Some(e) => e.to_lowercase(),
+        None => return (StatusCode::BAD_REQUEST, "Missing 'endpoint' parameter").into_response(),
+    };
+
+    let result = match endpoint.as_str() {
         "warstatus" => {
-            let url = format!("{}/WarSeason/801/Status", API_BASE_URL);
-            match fetch_raw_json(&client, &url).await {
-                Some(data) => Json(data).into_response(),
-                None => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to fetch RewardEntries",
-                )
-                    .into_response(),
-            }
+            let url = format!("{}/WarSeason/801/Status", base_url);
+            fetch_raw_json(&client, &url).await
         }
         "warinfo" => {
-            let url = format!("{}/WarSeason/801/WarInfo", API_BASE_URL);
-            match fetch_raw_json(&client, &url).await {
-                Some(data) => Json(data).into_response(),
-                None => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to fetch RewardEntries",
-                )
-                    .into_response(),
-            }
+            let url = format!("{}/WarSeason/801/WarInfo", base_url);
+            fetch_raw_json(&client, &url).await
         }
         "newsfeed" => {
-            let mut url = format!("{}/NewsFeed/801", API_BASE_URL);
-            // Append optional query parameters if provided
-            let mut query_params = Vec::new();
-            if let Some(max) = params.maxEntries {
-                query_params.push(format!("maxEntries={}", max));
+            let mut url = format!("{}/NewsFeed/801", base_url);
+            let mut query_parts = Vec::new();
+
+            if let Some(max_entries) = params.get("maxEntries") {
+                query_parts.push(format!("maxEntries={}", max_entries));
             } else {
-                query_params.push(format!("maxEntries={}", 1024));
+                query_parts.push("maxEntries=1024".to_string());
             }
-            if let Some(ts) = params.fromTimestamp {
-                query_params.push(format!("fromTimestamp={}", ts));
+
+            if let Some(from_ts) = params.get("fromTimestamp") {
+                query_parts.push(format!("fromTimestamp={}", from_ts));
             }
-            if !query_params.is_empty() {
+
+            if !query_parts.is_empty() {
                 url.push('?');
-                url.push_str(&query_params.join("&"));
+                url.push_str(&query_parts.join("&"));
             }
-            match fetch_raw_json(&client, &url).await {
-                Some(data) => Json(data).into_response(),
-                None => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to fetch RewardEntries",
-                )
-                    .into_response(),
-            }
+
+            fetch_raw_json(&client, &url).await
         }
         "majororders" => {
-            let url = format!("{}/v2/Assignment/War/801", API_BASE_URL);
-            match fetch_raw_json(&client, &url).await {
-                Some(data) => Json(data).into_response(),
-                None => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to fetch RewardEntries",
-                )
-                    .into_response(),
-            }
+            let url = format!("{}/v2/Assignment/War/801", base_url);
+            fetch_raw_json(&client, &url).await
         }
         "globalstats" => {
-            let url = format!("{}/Stats/War/801/Summary", API_BASE_URL);
-            match fetch_raw_json(&client, &url).await {
-                Some(data) => Json(data).into_response(),
-                None => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to fetch RewardEntries",
-                )
-                    .into_response(),
-            }
+            let url = format!("{}/Stats/War/801/Summary", base_url);
+            fetch_raw_json(&client, &url).await
         }
         "missionrewards" => {
-            let url = format!("{}/Mission/RewardEntries", API_BASE_URL);
-            match fetch_raw_json(&client, &url).await {
-                Some(data) => Json(data).into_response(),
-                None => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to fetch RewardEntries",
-                )
-                    .into_response(),
-            }
+            let url = format!("{}/Mission/RewardEntries", base_url);
+            fetch_raw_json(&client, &url).await
         }
         "newsticker" => {
-            let url = format!("{}/WarSeason/NewsTicker", API_BASE_URL);
-            match fetch_raw_json(&client, &url).await {
-                Some(data) => Json(data).into_response(),
-                None => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to fetch RewardEntries",
-                )
-                    .into_response(),
-            }
+            let url = format!("{}/WarSeason/NewsTicker", base_url);
+            fetch_raw_json(&client, &url).await
         }
         "gweffects" => {
-            let url = format!("{}/WarSeason/GalacticWarEffects", API_BASE_URL);
-            match fetch_raw_json(&client, &url).await {
-                Some(data) => Json(data).into_response(),
-                None => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to fetch RewardEntries",
-                )
-                    .into_response(),
-            }
+            let url = format!("{}/WarSeason/GalacticWarEffects", base_url);
+            fetch_raw_json(&client, &url).await
         }
+        _ => return (StatusCode::BAD_REQUEST, "Invalid endpoint").into_response(),
+    };
 
-        _ => (StatusCode::BAD_REQUEST, "Invalid endpoint").into_response(),
+    match result {
+        Some(data) => Json(data).into_response(),
+        None => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to fetch data from remote API",
+        )
+            .into_response(),
     }
 }

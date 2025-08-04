@@ -80,4 +80,11 @@ pub enum RouteFunction {
         meta: RouteMeta,
         log_file_types: Option<Vec<String>>,
     },
+    
+    #[serde(rename = "call_api")]
+    ApiProxy {
+        #[serde(flatten)]
+        meta: RouteMeta,
+        base_url:String
+    },
 }
