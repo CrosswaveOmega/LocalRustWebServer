@@ -37,6 +37,7 @@ use config::{SystemConfig, load_or_create_config};
 use htmlv::load_template_config;
 use myapi::routes;
 use std::net::{IpAddr, SocketAddr};
+use tokio::signal;
 use tower_http::trace::TraceLayer;
 
 use tracing;
@@ -48,6 +49,14 @@ async fn main() {
     let config = load_or_create_config("config.yaml");
     tracing::warn!("Starting up...");
     load_template_config();
+    let shutdown_handle = axum_server::Handle::new();
+    let shutdown_handle_clone = shutdown_handle.clone();
+    tokio::spawn(async move {
+        shutdown_signal().await;
+        tracing::warn!("Shutting down.");
+        shutdown_handle_clone.shutdown();
+    });
+
     match config.cert_mode {
         CertMode::SelfSigned | CertMode::Manual => {
             // Load TLS config for these modes
@@ -64,6 +73,7 @@ async fn main() {
             tracing::info!("HTTPS server listening on {}", addr);
 
             axum_server::bind_rustls(addr, tls_config)
+                .handle(shutdown_handle)
                 .serve(app.into_make_service_with_connect_info::<SocketAddr>())
                 .await
                 .unwrap();
@@ -79,6 +89,7 @@ async fn main() {
                 .layer(axum::middleware::from_fn(restrict_to_local_clients))
                 .layer(TraceLayer::new_for_http());
             axum_server::bind(addr)
+                .handle(shutdown_handle)
                 .serve(app.into_make_service_with_connect_info::<SocketAddr>())
                 .await
                 .unwrap();
@@ -86,6 +97,36 @@ async fn main() {
     }
 }
 
+/// Shutdown handler.
+async fn shutdown_signal() {
+    tracing::warn!("Checking for shutdown signal...");
+    let ctrl_c = async {
+        signal::ctrl_c().await.expect("failed to listen for ctrl_c");
+    };
+
+    tracing::warn!("Shutting down!");
+    #[cfg(unix)]
+    let terminate = async {
+        use tokio::signal::unix::{SignalKind, signal};
+        let mut term_signal =
+            signal(SignalKind::terminate()).expect("failed to listen for SIGTERM");
+        term_signal.recv().await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>(); // no-op
+
+    tokio::select! {
+        _ = ctrl_c => {
+            tracing::warn!("Received Ctrl+C");
+        }
+        _ = terminate => {
+            tracing::warn!("Received SIGTERM");
+        }
+    }
+}
+
+///Restrict to clients on the local network.
 pub async fn restrict_to_local_clients(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     req: Request<Body>,
