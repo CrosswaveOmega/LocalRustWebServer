@@ -60,9 +60,11 @@ async fn fetch_raw_json(client: &Client, url: &str) -> Option<Value> {
     }
 }
 
-
 /// Call the API with dynamic endpoint and base URL.
-pub async fn api_proxy(Query(params): Query<HashMap<String, String>>, base_url: String) -> impl IntoResponse {
+pub async fn api_proxy(
+    Query(params): Query<HashMap<String, String>>,
+    base_url: String,
+) -> impl IntoResponse {
     let client = Client::new();
     let endpoint = match params.get("endpoint") {
         Some(e) => e.to_lowercase(),

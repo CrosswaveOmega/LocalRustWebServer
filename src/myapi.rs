@@ -111,7 +111,6 @@ async fn normal_page_template_handler(title: String, body: String, template: i32
     HtmlV((title, body).render_html_from_int(template))
 }
 
-
 /// For the Log Get Handler:
 pub async fn get_logs_handler(
     Query(params): Query<HashMap<String, String>>,
@@ -195,7 +194,7 @@ async fn api_proxy_wrapped(
     query: Query<HashMap<String, String>>,
     base_url: String,
 ) -> impl IntoResponse {
-    api_proxy(query,base_url).await
+    api_proxy(query, base_url).await
 }
 
 /// Given a Router and a RouteFunction, add it to the router.
@@ -283,14 +282,11 @@ fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &st
                 get(move |query| get_logs_handler_wrapped(query, log_types.clone(), title.clone())),
             )
         }
-        RouteFunction::ApiProxy {
-            meta,
-            base_url,
-        } => {
+        RouteFunction::ApiProxy { meta, base_url } => {
             let base_url_c = base_url.clone();
             router.route(
                 &meta.route,
-            get(move |query| api_proxy_wrapped(query, base_url_c.clone())),
+                get(move |query| api_proxy_wrapped(query, base_url_c.clone())),
             )
         }
     }
