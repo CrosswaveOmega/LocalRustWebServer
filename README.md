@@ -5,6 +5,8 @@ A lightweight, minimal-profile web server designed for use on a local network (e
 
 This server uses a combination of JSON and HTML files to define dynamic routes and serve formatted HTML content.
 
+Very much a work in progress.
+
 ---
 
 ## Overview
