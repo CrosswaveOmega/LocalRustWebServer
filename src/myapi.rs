@@ -1,11 +1,11 @@
+mod api_call_system;
 mod shell_script_run;
-mod updatefromgameapi;
 
+use api_call_system::api_caller;
 use shell_script_run::run_command_handler;
-use updatefromgameapi::api_proxy;
 
 use crate::htmlv::{HtmlV, RenderHtml};
-use crate::my_api_config::RouteFunction;
+use crate::my_api_config::{ApiEndpointConfig, RouteFunction};
 use crate::procmon::system_usage_handler;
 
 use axum::{Router, extract::Query, response::IntoResponse, routing::get, routing::post};
@@ -175,7 +175,7 @@ pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
             | RouteFunction::HelpPage { meta, .. }
             | RouteFunction::RunCommand { meta, .. }
             | RouteFunction::GetLogs { meta, .. }
-            | RouteFunction::ApiProxy { meta, .. } => meta,
+            | RouteFunction::ApiCaller { meta, .. } => meta,
         };
 
         html.push_str(&format!(
@@ -190,11 +190,12 @@ pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
     html
 }
 
-async fn api_proxy_wrapped(
+async fn api_caller_wrapped(
     query: Query<HashMap<String, String>>,
     base_url: String,
+    endpoints: HashMap<String, ApiEndpointConfig>,
 ) -> impl IntoResponse {
-    api_proxy(query, base_url).await
+    api_caller(query, base_url, endpoints).await
 }
 
 /// Given a Router and a RouteFunction, add it to the router.
@@ -205,7 +206,7 @@ fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &st
         | RouteFunction::HelpPage { meta, .. }
         | RouteFunction::RunCommand { meta, .. }
         | RouteFunction::GetLogs { meta, .. }
-        | RouteFunction::ApiProxy { meta, .. } => meta,
+        | RouteFunction::ApiCaller { meta, .. } => meta,
     };
 
     tracing::info!(
@@ -282,11 +283,15 @@ fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &st
                 get(move |query| get_logs_handler_wrapped(query, log_types.clone(), title.clone())),
             )
         }
-        RouteFunction::ApiProxy { meta, base_url } => {
+        RouteFunction::ApiCaller {
+            meta,
+            base_url,
+            endpoints,
+        } => {
             let base_url_c = base_url.clone();
             router.route(
                 &meta.route,
-                get(move |query| api_proxy_wrapped(query, base_url_c.clone())),
+                get(move |query| api_caller_wrapped(query, base_url_c.clone(), endpoints.clone())),
             )
         }
     }

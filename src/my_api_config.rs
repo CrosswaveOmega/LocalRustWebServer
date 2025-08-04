@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Deserialize;
 
 /// Enumeration representing the different types of route functions.
@@ -24,6 +26,15 @@ pub struct RouteMeta {
     pub description: String,
     #[serde(default)]
     pub template_num: i32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ApiEndpointConfig {
+    //The API Path for this endpoint
+    pub path: String,
+    #[serde(default)]
+    //The default parameters for this endpoint, if they exist at all
+    pub default_params: HashMap<String, String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -82,9 +93,14 @@ pub enum RouteFunction {
     },
 
     #[serde(rename = "call_api")]
-    ApiProxy {
+    ApiCaller {
+        /// For calling a specific external api endpoint
+        ///
         #[serde(flatten)]
         meta: RouteMeta,
+        /// Base url for api
         base_url: String,
+        /// Mapping from endpoint keyword to path
+        endpoints: HashMap<String, ApiEndpointConfig>,
     },
 }
