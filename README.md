@@ -21,12 +21,12 @@ Very much a work in progress.
 
 Each JSON route file can define one or many route objects with the following fields:
 
-| Field           | Description                                                                                     |
-| --------------- | ----------------------------------------------------------------------------------------------- |
-| `function_type` | The behavior type of the route. Supported types: `"normal_page"`, `"run_command"`, `"get_logs"` |
-| `title`         | The display title of the page.                                                                  |
-| `description`   | A short help description of the endpoint, meant for use on the `/help` page.                    |
-| `template_num`  | The template number to use. Defaults to `0` if not specified.                                   |
+| Field           | Description                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------- |
+| `function_type` | The behavior type of the route. Supported types: `"normal_page"`, `"run_command"`, `"get_logs"`, `call_api` |
+| `title`         | The display title of the page.                                                                              |
+| `description`   | A short help description of the endpoint, meant for use on the `/help` page.                                |
+| `template_num`  | The template number to use. Defaults to `0` if not specified.                                               |
 
 ---
 
@@ -45,6 +45,7 @@ Templates are referenced by their integer ID in `template_config.json`, for exam
   "1": "logs_template.html"
 }
 ```
+Additional `.json` config files can be added to templates.
 
 ---
 
