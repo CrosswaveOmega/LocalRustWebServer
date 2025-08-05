@@ -30,7 +30,7 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
 
     tracing::info!("Scanning directory: {dir_path}");
 
-    // ===lLoad all .html files into a HashMap, and keep full file name as key ===
+    // load all .html files into a HashMap, and keep full file name as key
     let mut html_map = HashMap::new();
     if let Ok(entries) = fs::read_dir(dir_path) {
         for entry in entries.flatten() {
@@ -49,7 +49,7 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
         panic!("Failed to open directory: {dir_path}");
     }
 
-    // ===find and parse all .json files===
+    // find and parse all .json files
     let json_paths: Vec<PathBuf> = fs::read_dir(dir_path)
         .expect("Failed to read directory")
         .filter_map(|entry| {
@@ -64,7 +64,7 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
 
     tracing::info!("Found {} JSON file(s).", json_paths.len());
 
-    // ===process each JSON file===
+    // process each JSON file
     for json_path in json_paths {
         tracing::info!("Processing JSON file: {:?}", json_path);
 
@@ -80,7 +80,7 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
             _ => panic!("Unsupported JSON structure in {:?}", json_path),
         };
 
-        //=== substitute body field with html file contents, if the value in "body" matches===
+        // substitute body field with html file contents, if the value in "body" matches
         for mut entry in route_entries {
             if let Some(body_key) = entry.get("body").and_then(|b| b.as_str()) {
                 if let Some(body_content) = html_map.get(body_key) {
@@ -89,46 +89,51 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
                 }
             }
 
-            // === deserialize into a RouteFunction ===
+            //  deserialize into a RouteFunction
             let route: RouteFunction = serde_json::from_value(entry)
                 .unwrap_or_else(|e| panic!("Failed to parse route from {:?}: {e}", json_path));
 
             all_routes.push(route);
         }
     }
+    all_routes.sort_by_key(|route_func| {
+        let meta = match route_func {
+            RouteFunction::NormalPage { meta, .. }
+            | RouteFunction::HelpPage { meta, .. }
+            | RouteFunction::RunCommand { meta, .. }
+            | RouteFunction::GetLogs { meta, .. }
+            | RouteFunction::ApiCaller { meta, .. } => meta,
+        };
+        meta.help_order
+    });
 
     tracing::info!("Loaded {} route(s).", all_routes.len());
     all_routes
 }
 
-// For NormalPage:
-async fn normal_page_handler(title: String, body: String) -> HtmlV<String> {
-    HtmlV((title, body).render_html_from_int(0))
-}
-
-// For NormalPageTemplate:
+// for NormalPageTemplate:
 async fn normal_page_template_handler(title: String, body: String, template: i32) -> HtmlV<String> {
     HtmlV((title, body).render_html_from_int(template))
 }
 
-/// For the Log Get Handler:
+/// for the Log Get Handler:
 pub async fn get_logs_handler(
     Query(params): Query<HashMap<String, String>>,
     log_file_types: Option<Vec<String>>,
     title: String,
 ) -> HtmlV<String> {
-    // Use provided log files or raise exception.
+    // ensure there are provided log files.  if not, raise an exception
     let log_paths = log_file_types.unwrap_or_else(|| panic!("Log not found"));
 
-    // Parse selected log index from query
+    // parse selected log index from query
     let selected_index = params.get("log").and_then(|v| v.parse::<usize>().ok());
 
-    // Determine selected log path (if valid index), or default to first
+    // determine selected log path (if valid index), or default to first
     let log_file_path = selected_index
         .and_then(|i| log_paths.get(i))
         .unwrap_or(&log_paths[0]);
 
-    // Run tail command
+    // run tail command
     let output = Command::new("tail")
         .arg("-n")
         .arg("50")

@@ -26,6 +26,8 @@ pub struct RouteMeta {
     pub description: String,
     #[serde(default)]
     pub template_num: i32,
+    #[serde(default)]
+    pub help_order: i32,
 }
 
 #[derive(Debug, Clone, Deserialize)]

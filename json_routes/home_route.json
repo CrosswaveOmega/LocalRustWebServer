@@ -2,13 +2,16 @@
         "function_type": "normal_page",
         "route": "/",
         "title": "Home Page",
+        "help_order": -5,
         "body": "<h3>Welcome to the Local Site</h3>",
-        "description": "The home page"
+        "description": "The home page",
+        "template_num": 0
     },
     {
         "function_type": "help_page",
         "route": "/help",
+        "help_order": -6,
         "title": "Help Page",
-        "description": "Automatically Generated Home Page."
+        "description": "Automatically Generated Help Page."
     }
 ]

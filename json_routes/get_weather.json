@@ -1,15 +1,18 @@
 [{
         "function_type": "normal_page",
         "route": "/thisweather",
-        "title": "Weather",
+        "title": "Weather Frontend",
+
+        "help_order": 1,
         "description": "The Weather from OpenMeteo, formatted.",
-        "body": "<p>Front end</p>",
+        "body": "<p>Weather Front End</p>",
         "template_num": 1
     },
     {
         "function_type": "call_api",
         "route": "/get_weather",
         "title": "OpenMeteo",
+        "help_order": 50,
         "description": "Get the weather for some place.  You must include a valid latitude and longitude",
         "base_url": "https://api.open-meteo.com/v1",
         "endpoints": {
