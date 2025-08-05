@@ -25,15 +25,13 @@ const MAX_LOG_FILES: usize = 5;
 /// exceed a maximum size.
 ///
 /// `SizeRotatingWriter` implements the [`std:io::Write` trait][write] and will
-/// block on write operations. It may be used with [`NonBlocking`] to perform
-/// writes without blocking the current thread.
+/// block on write operations.
 ///
 /// `SizeRotatingWriter` does not implement the [`MakeWriter`]
 /// trait yet from `tracing-subscriber`, so it may also be used
 /// directly, without [`NonBlocking`].
 ///
 /// [write]: std::io::Write
-/// [`NonBlocking`]: super::non_blocking::NonBlocking
 ///
 pub struct SizeRotatingWriter {
     base_path: PathBuf,

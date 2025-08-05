@@ -1,12 +1,12 @@
+///! # API CONFIG
+///! Base Configuration of all possible RouteFunctions
+///! Definable in the JSON
+///! `RouteFunction` is an enum that represents different behaviors
+///! for handling HTTP requests, depending on the `function_type`
+///! specified in the associated data.
 use std::collections::HashMap;
-
 use serde::Deserialize;
 
-/// Enumeration representing the different types of route functions.
-///
-/// This enum is used to decode a JSON file where each variant corresponds to a specific
-/// route function identified by a `function_type`.
-///
 
 fn default_description() -> String {
     "No description, please set one for this route in /json_routes".to_string()
@@ -16,20 +16,20 @@ fn default_help_order() -> i32 {
     256
 }
 
+/// Base struct with all the common parameters for each json route.
 #[derive(Deserialize, Debug, Clone)]
 pub struct RouteMeta {
-    /// Base class with all the common parameters for each route.
-    /// those being
     /// route- the get route
-    /// title- the title
-    /// description- the description, seen on the help page
-    /// template_num- the html template number to use.  by default, it's 0.
     pub route: String,
+    /// title- the title
     pub title: String,
+    /// description- the description, seen on the help page
     #[serde(default = "default_description")]
     pub description: String,
+    /// template_num- the html template number to use.  by default, it's 0.
     #[serde(default)]
     pub template_num: i32,
+    /// template_num- the html template number to use.  by default, it's 0.
     #[serde(default = "default_help_order")]
     pub help_order: i32,
 }
@@ -43,6 +43,11 @@ pub struct ApiEndpointConfig {
     pub default_params: HashMap<String, String>,
 }
 
+/// Enumeration for the JSON structures associated with each possible RouteFunction
+///
+/// This enum is used to decode a JSON file where each variant corresponds to a specific
+/// route function identified by a `function_type`, as well as call the appropiate handler
+/// for each Function type
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "function_type")]
 pub enum RouteFunction {
@@ -54,9 +59,10 @@ pub enum RouteFunction {
         /// Normal page.  Just send in a usually body
         /// and/or optionally a special html template.
         ///
-        /// body- a String to display.
+
         #[serde(flatten)]
         meta: RouteMeta,
+        /// body- a String to display.
         body: String,
     },
     #[serde(rename = "help_page")]
@@ -73,16 +79,16 @@ pub enum RouteFunction {
     RunCommand {
         /// For running a specific .sh script.  
         ///
-        /// Intended for use on linux systems.
-        ///
-        ///
-        /// lock_file_path- required, a file path to an aquirable lock file.
-        /// log_file_path- required, file path to a specific log file that the script's output will be piped to.
-        /// script_file_path- required, a .sh file to be run in bash.
+        /// Intended for use on linux systems,
         #[serde(flatten)]
         meta: RouteMeta,
+
+        /// lock_file_path- required, file path to an aquirable lock file.
         lock_file_path: String,
+        /// log_file_path- required, file path to a specific log file that the script's output will be piped to.
         log_file_path: String,
+
+        /// script_file_path- required, file path to a .sh file to be run in bash.
         script_file_path: String,
     },
 
@@ -90,18 +96,18 @@ pub enum RouteFunction {
     GetLogs {
         /// use tail on a specific log file
         /// within the log_file_types list.
-        ///
-        /// log_file_types- list of log file paths.
-        /// /endpoint?log=integerhere
+        /// Used as/endpoint?log=integerhere
+
         #[serde(flatten)]
         meta: RouteMeta,
+        /// log_file_types- list of log file paths.
         log_file_types: Option<Vec<String>>,
     },
 
     #[serde(rename = "call_api")]
     ApiCaller {
         /// For calling a specific external api endpoint
-        ///
+        /// must always pass in the "endpoint" parameter
         #[serde(flatten)]
         meta: RouteMeta,
         /// Base url for api
