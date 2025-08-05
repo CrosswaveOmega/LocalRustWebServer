@@ -31,8 +31,6 @@ pub fn get_tera() -> &'static Tera {
         .expect("Tera is not initialized. Call init_tera() first.")
 }
 
-
-
 /// Read the contents of a json file, and
 /// add it into mapped.
 fn parse_and_extend_template_map(
