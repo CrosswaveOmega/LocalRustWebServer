@@ -15,7 +15,9 @@
         "endpoints": {
             "forecast": {
                 "path": "/forecast",
-                "default_parameters": {
+                "default_params": {
+                    "longitude": "0",
+                    "latitude": "0",
                     "current": "apparent_temperature,is_day,relative_humidity_2m,temperature_2m,wind_direction_10m,wind_speed_10m,wind_gusts_10m,cloud_cover,pressure_msl,weather_code,surface_pressure,precipitation,rain,showers,snowfall"
                 }
             }

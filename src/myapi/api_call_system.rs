@@ -35,7 +35,7 @@ async fn fetch_raw_json(client: &Client, url: &str) -> Option<Value> {
     {
         Ok(resp) => {
             let body = resp.text().await.ok()?;
-            tracing::info!("{}", body);
+            tracing::debug!("Body content is {}", body);
             match serde_json::from_str::<Value>(&body) {
                 Ok(data) => Some(data),
                 Err(e) => {
@@ -51,7 +51,8 @@ async fn fetch_raw_json(client: &Client, url: &str) -> Option<Value> {
     }
 }
 
-/// Call an external API with dynamic endpoint and base URL.
+/// Handler for calling an external API with dynamic endpoint and base URL.
+/// Base_URL and endpoints are loaded within the relevant json_routes
 pub async fn api_caller(
     Query(params): Query<HashMap<String, String>>,
     base_url: String,
@@ -59,11 +60,13 @@ pub async fn api_caller(
 ) -> impl IntoResponse {
     let client = Client::new();
 
+    // match the endpoint to the path parameter
     let endpoint_key = match params.get("endpoint") {
         Some(e) => e.to_lowercase(),
         None => return (StatusCode::BAD_REQUEST, "Missing 'endpoint' parameter").into_response(),
     };
 
+    //get configuration for this endpoint
     let endpoint_cfg = match endpoints.get(&endpoint_key) {
         Some(cfg) => cfg,
         None => return (StatusCode::BAD_REQUEST, "Invalid endpoint").into_response(),
@@ -71,18 +74,24 @@ pub async fn api_caller(
 
     let mut url = format!("{}{}", base_url, endpoint_cfg.path);
 
-    // Merge default params and user-supplied ones
+    // merge default params and user-supplied ones
     let mut merged_params = endpoint_cfg.default_params.clone();
+
+    for field in &["path", "default_params"] {
+        tracing::debug!("Calling path {}: {:?}", field, endpoint_cfg.path);
+    }
 
     for (k, v) in &params {
         if k != "endpoint" {
             merged_params.insert(k.clone(), v.clone());
+            tracing::debug!("added key: {} with value: {}", k, v);
         }
     }
-
+    tracing::info!("Calling url {}", url);
     if !merged_params.is_empty() {
         let query_str =
             serde_urlencoded::to_string(&merged_params).unwrap_or_else(|_| "".to_string());
+        tracing::info!("Encoded query string: {}", query_str);
         url.push('?');
         url.push_str(&query_str);
     }
