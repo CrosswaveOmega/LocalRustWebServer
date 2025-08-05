@@ -30,6 +30,9 @@ pub fn get_tera() -> &'static Tera {
     TERA.get()
         .expect("Tera is not initialized. Call init_tera() first.")
 }
+
+
+
 /// Read the contents of a json file, and
 /// add it into mapped.
 fn parse_and_extend_template_map(
@@ -90,7 +93,6 @@ pub fn load_template_config() {
             && path.extension().unwrap_or_default() == "json"
             && path != initial_config_path
         {
-            let raw = fs::read_to_string(&path).expect("Failed to read additional .json file");
             if let Err(e) = parse_and_extend_template_map(&path, &mut mapped) {
                 tracing::warn!("{}", e);
             }
