@@ -12,6 +12,10 @@ fn default_description() -> String {
     "No description, please set one for this route in /json_routes".to_string()
 }
 
+fn default_help_order() -> i32 {
+    256
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct RouteMeta {
     /// Base class with all the common parameters for each route.
@@ -26,7 +30,7 @@ pub struct RouteMeta {
     pub description: String,
     #[serde(default)]
     pub template_num: i32,
-    #[serde(default)]
+    #[serde(default = "default_help_order")]
     pub help_order: i32,
 }
 
