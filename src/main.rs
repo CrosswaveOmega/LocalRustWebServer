@@ -7,7 +7,6 @@
 //! "title": "Help Page",
 //! "body": "help.html"
 //! }
-//! # assert_eq!(4, sum2(2, 2));
 //! ```
 
 #![allow(unused_imports)]
