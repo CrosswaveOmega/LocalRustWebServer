@@ -1,22 +1,15 @@
 /// A generic external API handler.
 /// Currently only usable for GET requests.
 use axum::{
-    Router, extract::Query, response::Html, response::IntoResponse, response::Json, routing::get,
+    extract::Query, response::IntoResponse, response::Json,
 };
 use reqwest::{Client, header};
 
 use axum::http::StatusCode;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_urlencoded;
 use std::collections::HashMap;
-use std::env;
-use std::fmt::Debug;
-use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tracing;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::my_api_config::ApiEndpointConfig;
 

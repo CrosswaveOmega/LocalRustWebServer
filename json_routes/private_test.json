@@ -1,0 +1,10 @@
+[{
+    "function_type": "normal_page",
+    "route": "/privatetest",
+    "title": "Private Page Test",
+    "help_order": -5,
+    "auth_level": 1,
+    "body": "<h3>Welcome to the Local Site, {{username}}</h3>",
+    "description": "The home page",
+    "template_num": 0
+}]

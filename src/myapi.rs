@@ -1,27 +1,21 @@
-mod api_call_system;
-mod shell_script_run;
+pub(crate) mod api_call_system;
+pub(crate) mod handlers;
+pub(crate) mod shell_script_run;
 
-use api_call_system::api_caller;
-use shell_script_run::run_command_handler;
 
-use crate::htmlv::{HtmlV, RenderHtml};
-use crate::my_api_config::{ApiEndpointConfig, RouteFunction};
+use crate::my_api_config::RouteFunction;
 use crate::procmon::system_usage_handler;
 
-use axum::{Router, extract::Query, response::IntoResponse, routing::get, routing::post};
+use axum::{Router, routing::get};
 use html_escape;
-use serde::Deserialize;
 use std::collections::HashMap;
-use std::process::{Command, Stdio};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tower_http::services::ServeDir;
 
 use serde_json::Value;
 use std::fs;
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::thread;
+
+use std::path::PathBuf;
+
 use tracing;
 
 /// Get all JSON files from dir_path and load them into RouteFunctions
@@ -111,64 +105,6 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
     all_routes
 }
 
-// for NormalPageTemplate:
-async fn normal_page_template_handler(title: String, body: String, template: i32) -> HtmlV<String> {
-    HtmlV((title, body).render_html_from_int(template))
-}
-
-/// for the Log Get Handler:
-pub async fn get_logs_handler(
-    Query(params): Query<HashMap<String, String>>,
-    log_file_types: Option<Vec<String>>,
-    title: String,
-) -> HtmlV<String> {
-    // ensure there are provided log files.  if not, raise an exception
-    let log_paths = log_file_types.unwrap_or_else(|| panic!("Log not found"));
-
-    // parse selected log index from query
-    let selected_index = params.get("log").and_then(|v| v.parse::<usize>().ok());
-
-    // determine selected log path (if valid index), or default to first
-    let log_file_path = selected_index
-        .and_then(|i| log_paths.get(i))
-        .unwrap_or(&log_paths[0]);
-
-    // run tail command
-    let output = Command::new("tail")
-        .arg("-n")
-        .arg("50")
-        .arg(log_file_path)
-        .output();
-
-    match output {
-        Ok(output) if output.status.success() => {
-            let logs = String::from_utf8_lossy(&output.stdout).to_string();
-            let log_lines = logs
-                .lines()
-                .map(|line| format!("<li>{}</li>", line))
-                .collect::<Vec<_>>()
-                .join("\n");
-
-            HtmlV((title, format!("<ul>{}</ul>", log_lines)).render_html_from_int(-1))
-        }
-        Ok(output) => {
-            let error_message = String::from_utf8_lossy(&output.stderr).to_string();
-            HtmlV((title, format!("Error: {}", error_message)).render_html_from_int(-1))
-        }
-        Err(e) => {
-            HtmlV((title, format!("<pre>Failed to run tail: {}</pre>", e)).render_html_from_int(-1))
-        }
-    }
-}
-
-pub async fn get_logs_handler_wrapped(
-    query: Query<HashMap<String, String>>,
-    log_file_types: Option<Vec<String>>,
-    title: String,
-) -> impl IntoResponse {
-    get_logs_handler(query, log_file_types, title).await
-}
-
 /// Build up the body for a help page
 /// while taking in an array of RotueFunctions
 pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
@@ -183,8 +119,15 @@ pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
             | RouteFunction::ApiCaller { meta, .. } => meta,
         };
 
+        let route_prefix = if meta.auth_level >= 1 {
+            "/protected"
+        } else {
+            ""
+        };
+
         html.push_str(&format!(
-            "    <li><a href=\"{route}\">{title}</a>: {desc}</li>\n",
+            "    <li><a href=\"{route_prefix}{route}\">{title}</a>: {desc}</li>\n",
+            route_prefix = route_prefix,
             route = html_escape::encode_safe(&meta.route),
             title = html_escape::encode_safe(&meta.title),
             desc = html_escape::encode_safe(&meta.description),
@@ -195,17 +138,9 @@ pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
     html
 }
 
-async fn api_caller_wrapped(
-    query: Query<HashMap<String, String>>,
-    base_url: String,
-    endpoints: HashMap<String, ApiEndpointConfig>,
-) -> impl IntoResponse {
-    api_caller(query, base_url, endpoints).await
-}
-
 /// Given a Router and a RouteFunction, add it to the router.
 /// Must pass in the help_text for the /help page.
-fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &str) -> Router {
+pub fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &str) -> Router {
     let meta = match &route_func {
         RouteFunction::NormalPage { meta, .. }
         | RouteFunction::HelpPage { meta, .. }
@@ -221,93 +156,104 @@ fn add_route_to_router(router: Router, route_func: RouteFunction, help_text: &st
         meta.description,
         meta.template_num
     );
-
+    let (path, route) = route_func.into_route(help_text);
+    router.route(&path, route) /* 
     match route_func {
-        RouteFunction::NormalPage { meta, body } => {
-            let title_clone = meta.title.clone();
-            let body_clone = body.clone();
-            let template_num = meta.template_num;
-            router.route(
-                &meta.route,
-                get(move || {
-                    normal_page_template_handler(
-                        title_clone.clone(),
-                        body_clone.clone(),
-                        template_num,
-                    )
-                }),
-            )
-        }
-        //Help Page
-        RouteFunction::HelpPage { meta } => {
-            let title_clone = meta.title.clone();
-            let body_clone = help_text.to_string(); // captured by closure
-            let template_num = 0;
-            router.route(
-                &meta.route,
-                get(move || {
-                    normal_page_template_handler(
-                        title_clone.clone(),
-                        body_clone.clone(),
-                        template_num,
-                    )
-                }),
-            )
-        }
-        RouteFunction::RunCommand {
-            meta,
-            lock_file_path,
-            log_file_path,
-            script_file_path,
-        } => {
-            let lock_clone = lock_file_path.clone();
-            let log_clone = log_file_path.clone();
-            let script_clone = script_file_path.clone();
-            let title_clone = meta.title.clone();
-            router.route(
-                &meta.route,
-                get(move || {
-                    run_command_handler(
-                        lock_clone.clone(),
-                        log_clone.clone(),
-                        script_clone.clone(),
-                        title_clone.clone(),
-                        meta.template_num,
-                    )
-                }),
-            )
-        }
-        RouteFunction::GetLogs {
-            meta,
-            log_file_types,
-        } => {
-            let title = meta.title.clone();
-            let log_types = log_file_types.clone();
-            router.route(
-                &meta.route,
-                get(move |query| get_logs_handler_wrapped(query, log_types.clone(), title.clone())),
-            )
-        }
-        RouteFunction::ApiCaller {
-            meta,
-            base_url,
-            endpoints,
-        } => {
-            let base_url_c = base_url.clone();
-            router.route(
-                &meta.route,
-                get(move |query| api_caller_wrapped(query, base_url_c.clone(), endpoints.clone())),
-            )
-        }
+    RouteFunction::NormalPage { meta, body } => {
+    let title_clone = meta.title.clone();
+    let body_clone = body.clone();
+    let template_num = meta.template_num;
+    router.route(
+    &meta.route,
+    get(move || {
+    normal_page_template_handler(
+    title_clone.clone(),
+    body_clone.clone(),
+    template_num,
+    )
+    }),
+    )
     }
+    //Help Page
+    RouteFunction::HelpPage { meta } => {
+    let title_clone = meta.title.clone();
+    let body_clone = help_text.to_string();
+    let template_num = 0;
+    router.route(
+    &meta.route,
+    get(move || {
+    normal_page_template_handler(
+    title_clone.clone(),
+    body_clone.clone(),
+    template_num,
+    )
+    }),
+    )
+    }
+    RouteFunction::RunCommand {
+    meta,
+    lock_file_path,
+    log_file_path,
+    script_file_path,
+    } => {
+    let lock_clone = lock_file_path.clone();
+    let log_clone = log_file_path.clone();
+    let script_clone = script_file_path.clone();
+    let title_clone = meta.title.clone();
+    router.route(
+    &meta.route,
+    get(move || {
+    run_command_handler(
+    lock_clone.clone(),
+    log_clone.clone(),
+    script_clone.clone(),
+    title_clone.clone(),
+    meta.template_num,
+    )
+    }),
+    )
+    }
+    RouteFunction::GetLogs {
+    meta,
+    log_file_types,
+    } => {
+    let title = meta.title.clone();
+    let log_types = log_file_types.clone();
+    router.route(
+    &meta.route,
+    get(move |query| get_logs_handler_wrapped(query, log_types.clone(), title.clone())),
+    )
+    }
+    RouteFunction::ApiCaller {
+    meta,
+    base_url,
+    endpoints,
+    } => {
+    let base_url_c = base_url.clone();
+    router.route(
+    &meta.route,
+    get(move |query| api_caller_wrapped(query, base_url_c.clone(), endpoints.clone())),
+    )
+    }
+    }*/
 }
 
-pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>) -> Router {
+pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>, prot: i32) -> Router {
     let mut router = Router::new();
     let help_text = build_help_page_html(route_functions.clone());
 
     for route_func in route_functions {
-        router = add_route_to_router(router, route_func, &help_text);
+        let meta = match &route_func {
+            RouteFunction::NormalPage { meta, .. }
+            | RouteFunction::HelpPage { meta, .. }
+            | RouteFunction::RunCommand { meta, .. }
+            | RouteFunction::GetLogs { meta, .. }
+            | RouteFunction::ApiCaller { meta, .. } => meta,
+        };
+
+        if prot == 0 && meta.auth_level <= 0 {
+            router = add_route_to_router(router, route_func, &help_text);
+        }
     }
 
     router
@@ -315,7 +261,7 @@ pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>) ->
 
 pub fn routes() -> Router {
     let route_functions = load_routes_from_dir("./json_routes");
-    build_router_from_route_functions(route_functions)
+    build_router_from_route_functions(route_functions, 0)
         // MANUAL ROUTES.
         // Extension 1, System Resource Monitor.
         .route("/procmon", get(system_usage_handler))

@@ -36,7 +36,7 @@
 <body>
     <div class="window">
         <div class="title-bar">
-            <div class="title-bar-text">{{ username }} {{ title }}</div>
+            <div class="title-bar-text">{{ title }} {{username}}</div>
             <div class="title-bar-controls">
                 <button aria-label="Help" class="help" onclick="location.href='/help'"></button>
                 <button aria-label="Minimize" class="minimize"></button>
@@ -45,7 +45,11 @@
             </div>
         </div>
         <div class="window-body">
-            {{ body|safe }}
+            {% for message in messages %}
+            <li>
+                <span><strong>{{ message }}</strong></span>
+            </li>
+            {% endfor %} {{ body|safe }}
         </div>
         <div class="status-bar">
             <p class="status-bar-field">Press F1 for help</p>

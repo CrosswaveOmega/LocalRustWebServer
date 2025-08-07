@@ -10,12 +10,10 @@ use tracing_subscriber::{filter::LevelFilter, fmt, layer::SubscriberExt, util::S
 
 use std::io::{Seek, SeekFrom};
 use std::{
-    cmp::Reverse,
     fs,
     io::{self, Write},
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex},
-    time::{Duration, SystemTime},
+    path::PathBuf,
+    time::SystemTime,
 };
 
 const MAX_LOG_SIZE: u64 = 8 * 1024 * 1024; // 8 MB

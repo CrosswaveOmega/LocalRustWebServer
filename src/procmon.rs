@@ -4,14 +4,8 @@ Module that sends out current cpu and memory usage.
 
 */
 
-use axum::{
-    Router,
-    response::{IntoResponse, Json},
-    routing::get,
-};
+use axum::response::{IntoResponse, Json};
 use serde::Serialize;
-use std::fs;
-use std::process::Command;
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
 use tokio::sync::Mutex;
 

@@ -4,10 +4,17 @@
 ///! `RouteFunction` is an enum that represents different behaviors
 ///! for handling HTTP requests, depending on the `function_type`
 ///! specified in the associated data.
-use std::collections::HashMap;
 use serde::Deserialize;
+use std::collections::HashMap;
 
+use crate::auth::users::AuthSession;
+use crate::myapi::handlers::{
+    api_caller_wrapped, get_logs_handler_wrapped, normal_page_template_handler,
+    normal_page_template_handler_secure,
+};
+use crate::myapi::shell_script_run::{run_command_handler, run_command_handler_secure};
 
+use axum::routing::get;
 fn default_description() -> String {
     "No description, please set one for this route in /json_routes".to_string()
 }
@@ -26,12 +33,16 @@ pub struct RouteMeta {
     /// description- the description, seen on the help page
     #[serde(default = "default_description")]
     pub description: String,
+
+    /// help_order, order displayed on the help page.  default 0.
+    #[serde(default = "default_help_order")]
+    pub help_order: i32,
     /// template_num- the html template number to use.  by default, it's 0.
     #[serde(default)]
     pub template_num: i32,
-    /// template_num- the html template number to use.  by default, it's 0.
-    #[serde(default = "default_help_order")]
-    pub help_order: i32,
+    /// auth_level- the authorization level required.  by default, it's 0.
+    #[serde(default)]
+    pub auth_level: i32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -115,4 +126,114 @@ pub enum RouteFunction {
         /// Mapping from endpoint keyword to path
         endpoints: HashMap<String, ApiEndpointConfig>,
     },
+}
+
+impl RouteFunction {
+    pub fn into_route(self, help_text: &str) -> (String, axum::routing::MethodRouter) {
+        match self {
+            RouteFunction::NormalPage { meta, body } => {
+                let title = meta.title.clone();
+                let body = body.clone();
+                let template = meta.template_num;
+
+                if meta.auth_level <= 0 {
+                    let route = get(move || {
+                        normal_page_template_handler(title.clone(), body.clone(), template)
+                    });
+
+                    (meta.route.clone(), route)
+                } else {
+                    let route = get(move |auth_session: AuthSession| {
+                        normal_page_template_handler_secure(
+                            auth_session,
+                            title.clone(),
+                            body.clone(),
+                            template,
+                        )
+                    });
+
+                    (meta.route.clone(), route)
+                }
+            }
+
+            RouteFunction::HelpPage { meta } => {
+                let title = meta.title.clone();
+                let body = help_text.to_string();
+                let template = 0;
+
+                let route = get(move || {
+                    normal_page_template_handler(title.clone(), body.clone(), template)
+                });
+
+                (meta.route.clone(), route)
+            }
+
+            RouteFunction::RunCommand {
+                meta,
+                lock_file_path,
+                log_file_path,
+                script_file_path,
+            } => {
+                let lock = lock_file_path.clone();
+                let log = log_file_path.clone();
+                let script = script_file_path.clone();
+                let title = meta.title.clone();
+                let template = meta.template_num;
+                if meta.auth_level <= 0 {
+                    let route = get(move || {
+                        run_command_handler(
+                            lock.clone(),
+                            log.clone(),
+                            script.clone(),
+                            title.clone(),
+                            template,
+                        )
+                    });
+
+                    (meta.route.clone(), route)
+                } else {
+                    let route = get(move |auth_session: AuthSession| {
+                        run_command_handler_secure(
+                            auth_session,
+                            lock.clone(),
+                            log.clone(),
+                            script.clone(),
+                            title.clone(),
+                            template,
+                        )
+                    });
+
+                    (meta.route.clone(), route)
+                }
+            }
+
+            RouteFunction::GetLogs {
+                meta,
+                log_file_types,
+            } => {
+                let title = meta.title.clone();
+                let logs = log_file_types.clone();
+
+                let route =
+                    get(move |query| get_logs_handler_wrapped(query, logs.clone(), title.clone()));
+
+                (meta.route.clone(), route)
+            }
+
+            RouteFunction::ApiCaller {
+                meta,
+                base_url,
+                endpoints,
+            } => {
+                let base_url = base_url.clone();
+                let endpoints = endpoints.clone();
+
+                let route = get(move |query| {
+                    api_caller_wrapped(query, base_url.clone(), endpoints.clone())
+                });
+
+                (meta.route.clone(), route)
+            }
+        }
+    }
 }

@@ -1,0 +1,75 @@
+<html>
+
+
+<head>
+    <link rel="stylesheet" href="/static/98.css">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login needed</title>
+    <style>
+        /* Ensure the window resizes properly */
+        
+        .window {
+            width: 100%;
+            margin: auto;
+        }
+        
+        .window-body {
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+        }
+        
+        .status-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        
+        .status-bar-field {
+            flex: 1;
+            min-width: 100px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-bar-text">You must log in for that page!</div>
+
+        </div>
+        <div class="window-body">
+            <ul>
+                {% for message in messages %}
+                <li>
+                    <span><strong>{{ message }}</strong></span>
+                </li>
+                {% endfor %}
+            </ul>
+            <form method="post">
+                <fieldset>
+                    <legend>User login</legend>
+                    <p>
+                        <label for="username">Username</label>
+                        <input name="username" id="username" value="" />
+                    </p>
+                    <p>
+                        <label for="password">Password</label>
+                        <input name="password" id="password" type="password" value="" />
+                    </p>
+                </fieldset>
+
+                <input type="submit" value="login" />
+                <input type="hidden" name="next" value="{{ next }}" />
+            </form>
+        </div>
+        <div class="status-bar">
+            <p class="status-bar-field">LOGIN</p>
+            <p class="status-bar-field">DO LOGIN.</p>
+        </div>
+    </div>
+
+</body>
+
+</html>

@@ -136,11 +136,51 @@ impl RenderHtml for (&str, &str) {
         context.insert("title", self.0);
         context.insert("body", self.1);
 
+        context.insert("username", "");
         match tera.render(&template_name, &context) {
             Ok(html) => html,
             Err(err) => {
                 tracing::error!("Template rendering failed for {}: {}", template_name, err);
                 format!("<h1>{}</h1><div>{}</div>", self.0, self.1)
+            }
+        }
+    }
+}
+impl RenderHtml for (&str, &str, &str) {
+    fn render_html(self, template_type: i32) -> String {
+        let template_id = template_type;
+
+        let template_name = TEMPLATE_MAP
+            .get()
+            .and_then(|m| m.get(&template_id))
+            .cloned()
+            .unwrap_or_else(|| "template.html".to_string());
+
+        // get tera instance
+        let tera = get_tera();
+
+        // initalize context
+        let mut context = Context::new();
+        context.insert("title", self.0);
+        context.insert("username", self.2);
+
+        // render body with context
+        // Just cloning tera for now...
+        let rendered_body = match tera.clone().render_str(self.1, &context) {
+            Ok(result) => result,
+            Err(err) => {
+                tracing::error!("Inner body rendering failed: {}", err);
+                self.1.to_string()
+            }
+        };
+
+        context.insert("body", &rendered_body);
+
+        match tera.render(&template_name, &context) {
+            Ok(html) => html,
+            Err(err) => {
+                tracing::error!("Template rendering failed for {}: {}", template_name, err);
+                format!("<h1>{}</h1><div>{}</div>", self.0, rendered_body)
             }
         }
     }
@@ -154,6 +194,11 @@ impl RenderHtml for (String, &str) {
 impl RenderHtml for (String, String) {
     fn render_html(self, template_type: i32) -> String {
         (self.0.as_str(), self.1.as_str()).render_html(template_type)
+    }
+}
+impl RenderHtml for (String, String, String) {
+    fn render_html(self, template_type: i32) -> String {
+        (self.0.as_str(), self.1.as_str(), self.2.as_str()).render_html(template_type)
     }
 }
 
