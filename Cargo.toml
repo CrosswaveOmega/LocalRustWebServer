@@ -9,7 +9,6 @@ axum-extra = "0.10.1"
 axum-server = { version = "0.7.2", features = ["tls-rustls"] }
 axum-login = "0.18.0"
 
-bcrypt="0.17.0"
 time="0.3.41"
 reqwest = {version="0.12.22", features = ["json"]}
 mime = "0.3.17"
@@ -38,4 +37,3 @@ tower-sessions-sqlx-store = { version = "0.15.0", features = ["sqlite"] }
 thiserror = "2.0.12"
 
 password-auth = "1.0.0"
-askama = "0.14.0"

@@ -13,14 +13,11 @@ use tracing;
 
 use crate::auth::users::{AuthSession, Credentials};
 
+///Render the login template.
 fn render_login_template(
     messages: Vec<Message>,
     next: Option<String>,
 ) -> Result<String, tera::Error> {
-    println!(
-        "Rendering login template with messages: {:?} and next: {:?}",
-        messages, next
-    );
     let tera = get_tera();
     let mut context = Context::new();
     let messages_as_strs: Vec<String> = messages.into_iter().map(|m| m.message).collect();

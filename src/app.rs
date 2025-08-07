@@ -33,6 +33,7 @@ pub struct RustyWebApp {
     db: SqlitePool,
     config: SystemConfig,
 }
+///Ensure there is a user already.
 async fn first_time_setup(backend: &Backend)-> Result<(), Box<dyn std::error::Error>> {
 
     if backend.check_for_users().await? {

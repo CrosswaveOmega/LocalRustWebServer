@@ -11,6 +11,8 @@ pub struct User {
     password: String,
     pub access_level:i32,
 }
+// Based on the sqlite example from axum-login.
+
 
 // Here we've implemented `Debug` manually to avoid accidentally logging the
 // password hash.
