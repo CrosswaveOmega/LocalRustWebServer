@@ -1,13 +1,18 @@
 use crate::auth::users::{AuthSession, User};
 use crate::htmlv::{HtmlV, RenderHtml};
+use crate::state;
+use state::AppSingleton;
 use std::process::{Command, Stdio};
 use tokio::process::Command as TokioCommand;
 
 use shellexpand;
 
-
 /// Returns Ok(true) if lock acquired, Ok(false) if lock held by another process.
 pub async fn try_acquire_lock(lock_path: &str) -> Result<bool, std::io::Error> {
+    if lock_path.is_empty() {
+        return Ok(true);
+    }
+
     let lock_status = Command::new("flock")
         .arg("-n")
         .arg(lock_path)
@@ -20,13 +25,28 @@ pub async fn try_acquire_lock(lock_path: &str) -> Result<bool, std::io::Error> {
         Err(e) => Err(e),
     }
 }
+/// Static handler that is called when a script finishes
+fn script_finished_handler(script_path: &str, status: std::process::ExitStatus) {
+    let status_str = if let Some(code) = status.code() {
+        format!("exit code {}", code)
+    } else {
+        "terminated by signal".to_string()
+    };
+    tracing::info!("Script {} finished with status: {}", script_path, status);
 
+    let app = AppSingleton::instance();
+
+    app.insert_status(script_path, &status_str);
+
+    // Additional actions can go here
+}
 /// Spawn a shell script in the background and log its output.
 /// Returns a message about whether the script started successfully.
 pub async fn spawn_script_in_background(
     script_path: &str,
     log_path: &str,
 ) -> Result<String, std::io::Error> {
+    let app = AppSingleton::instance();
     tracing::debug!("Running {} in the background", script_path);
 
     let mut command = TokioCommand::new("sh");
@@ -38,13 +58,22 @@ pub async fn spawn_script_in_background(
 
     match command.spawn() {
         Ok(mut child) => {
-            if let Ok(Some(_)) = child.try_wait() {
-                tracing::debug!("Script {} has finished running.", script_path);
-                Ok(format!("Script {} has finished running.", script_path))
-            } else {
-                tracing::debug!("Script {} is running in the background.", script_path);
-                Ok(format!("Script {} is running.", script_path))
-            }
+            app.insert_status(script_path, "running");
+            let script_path_clone = script_path.to_string();
+            tokio::spawn(async move {
+                match child.wait().await {
+                    Ok(status) => {
+                        // Call a static handler function here
+                        script_finished_handler(&script_path_clone, status);
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to wait for script {}: {}", script_path_clone, e);
+                    }
+                }
+            });
+
+            tracing::debug!("Script {} is running in the background.", script_path);
+            Ok(format!("Script {} is running.", script_path))
         }
         Err(e) => {
             tracing::debug!("Failed to start script {}: {}", script_path, e);
@@ -180,4 +209,22 @@ pub async fn run_command_handler_secure(
             HtmlV((title, format!("{}", error_message)).render_html_from_int(-1))
         }
     }
+}
+
+/// Secure variant of run command.
+pub async fn get_command_statuses(title: String, template: i32) -> HtmlV<String> {
+    let app = AppSingleton::instance();
+    let hashjson = app.hashstatus_to_json();
+    HtmlV((title, format!("<p>{}</p>", hashjson)).render_html_from_int(template))
+}
+
+/// Secure variant of run command.
+pub async fn get_command_statuses_secure(
+    auth_session: AuthSession,
+    title: String,
+    template: i32,
+) -> HtmlV<String> {
+    let app = AppSingleton::instance();
+    let hashjson = app.hashstatus_to_json();
+    HtmlV((title, format!("<p>{}</p>", hashjson)).render_html_from_int(template))
 }

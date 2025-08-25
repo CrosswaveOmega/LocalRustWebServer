@@ -4,7 +4,11 @@ use std::error::Error;
 use std::io::{self, Write};
 
 ///Add a new user with this access level
-pub async fn adduser(username: &str, password: &str,access_level:i32) -> Result<(), Box<dyn Error>> {
+pub async fn adduser(
+    username: &str,
+    password: &str,
+    access_level: i32,
+) -> Result<(), Box<dyn Error>> {
     let db = SqlitePool::connect("./thisbackend.db").await?;
 
     let existing_user: Option<(String,)> = sqlx::query_as(
@@ -36,7 +40,6 @@ pub async fn adduser(username: &str, password: &str,access_level:i32) -> Result<
     println!("User '{}' added successfully.", username);
     Ok(())
 }
-
 
 pub async fn adduser_from_prompt() -> Result<(), Box<dyn Error>> {
     let mut is_ok = false;

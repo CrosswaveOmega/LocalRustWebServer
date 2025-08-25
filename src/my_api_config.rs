@@ -12,7 +12,10 @@ use crate::myapi::handlers::{
     api_caller_wrapped, get_logs_handler_wrapped, normal_page_template_handler,
     normal_page_template_handler_secure,
 };
-use crate::myapi::shell_script_run::{run_command_handler, run_command_handler_secure};
+use crate::myapi::shell_script_run::{
+    get_command_statuses, get_command_statuses_secure, run_command_handler,
+    run_command_handler_secure,
+};
 
 use axum::routing::get;
 fn default_description() -> String {
@@ -102,7 +105,15 @@ pub enum RouteFunction {
         /// script_file_path- required, file path to a .sh file to be run in bash.
         script_file_path: String,
     },
+    #[serde(rename = "command_statuses")]
+    CommandStatus {
+        /// Get the commandStatus
+        /// and/or optionally a special html template.
+        ///
 
+        #[serde(flatten)]
+        meta: RouteMeta,
+    },
     #[serde(rename = "get_logs")]
     GetLogs {
         /// use tail on a specific log file
@@ -164,6 +175,14 @@ impl RouteFunction {
                 let route = get(move || {
                     normal_page_template_handler(title.clone(), body.clone(), template)
                 });
+
+                (meta.route.clone(), route)
+            }
+            RouteFunction::CommandStatus { meta } => {
+                let title = meta.title.clone();
+                let template = 0;
+
+                let route = get(move || get_command_statuses(title.clone(), template));
 
                 (meta.route.clone(), route)
             }

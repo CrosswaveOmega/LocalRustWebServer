@@ -1,0 +1,9 @@
+[{
+    "function_type": "command_statuses",
+    "route": "/command_statuses",
+    "title": "Get Running Commands",
+    "help_order": -5,
+    "auth_level": 0,
+    "description": "List out any running commands.",
+    "template_num": 1
+}]

@@ -9,10 +9,9 @@ pub struct User {
     id: i64,
     pub username: String,
     password: String,
-    pub access_level:i32,
+    pub access_level: i32,
 }
 // Based on the sqlite example from axum-login.
-
 
 // Here we've implemented `Debug` manually to avoid accidentally logging the
 // password hash.
@@ -55,7 +54,6 @@ pub struct Backend {
     db: SqlitePool,
 }
 
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
@@ -65,7 +63,6 @@ pub enum Error {
     TaskJoin(#[from] task::JoinError),
 }
 
-
 impl Backend {
     pub fn new(db: SqlitePool) -> Self {
         Self { db }
@@ -74,10 +71,9 @@ impl Backend {
         let exists = sqlx::query_scalar::<_, i64>("SELECT 1 FROM users LIMIT 1")
             .fetch_optional(&self.db)
             .await?;
-    
+
         Ok(exists.is_some())
     }
-    
 }
 
 impl AuthnBackend for Backend {
@@ -112,7 +108,6 @@ impl AuthnBackend for Backend {
 
         Ok(user)
     }
-
 }
 
 // We use a type alias for convenience.

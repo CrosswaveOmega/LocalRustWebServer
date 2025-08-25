@@ -5,9 +5,6 @@ use axum::{extract::Query, response::IntoResponse};
 use std::collections::HashMap;
 use std::process::Command;
 
-
-
-
 // for NormalPageTemplate:
 pub async fn normal_page_template_handler(
     title: String,
@@ -16,6 +13,7 @@ pub async fn normal_page_template_handler(
 ) -> HtmlV<String> {
     HtmlV((title, body).render_html_from_int(template))
 }
+
 /// for NormalPageTemplate,  secure variant.
 pub async fn normal_page_template_handler_secure(
     auth_session: AuthSession,

@@ -2,7 +2,6 @@ pub(crate) mod api_call_system;
 pub(crate) mod handlers;
 pub(crate) mod shell_script_run;
 
-
 use crate::my_api_config::RouteFunction;
 use crate::procmon::system_usage_handler;
 
@@ -18,7 +17,9 @@ use std::path::PathBuf;
 
 use tracing;
 
-/// Get all JSON files from dir_path and load them into RouteFunctions
+/// Get all JSON files from dir_path and load them
+/// valid RouteFunction structs
+///
 pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
     let mut all_routes = Vec::new();
 
@@ -94,6 +95,7 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
         let meta = match route_func {
             RouteFunction::NormalPage { meta, .. }
             | RouteFunction::HelpPage { meta, .. }
+            | RouteFunction::CommandStatus { meta, .. }
             | RouteFunction::RunCommand { meta, .. }
             | RouteFunction::GetLogs { meta, .. }
             | RouteFunction::ApiCaller { meta, .. } => meta,
@@ -114,6 +116,7 @@ pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
         let meta = match route_func {
             RouteFunction::NormalPage { meta, .. }
             | RouteFunction::HelpPage { meta, .. }
+            | RouteFunction::CommandStatus { meta, .. }
             | RouteFunction::RunCommand { meta, .. }
             | RouteFunction::GetLogs { meta, .. }
             | RouteFunction::ApiCaller { meta, .. } => meta,
@@ -144,6 +147,7 @@ pub fn add_route_to_router(router: Router, route_func: RouteFunction, help_text:
     let meta = match &route_func {
         RouteFunction::NormalPage { meta, .. }
         | RouteFunction::HelpPage { meta, .. }
+        | RouteFunction::CommandStatus { meta, .. }
         | RouteFunction::RunCommand { meta, .. }
         | RouteFunction::GetLogs { meta, .. }
         | RouteFunction::ApiCaller { meta, .. } => meta,
@@ -157,85 +161,7 @@ pub fn add_route_to_router(router: Router, route_func: RouteFunction, help_text:
         meta.template_num
     );
     let (path, route) = route_func.into_route(help_text);
-    router.route(&path, route) /* 
-    match route_func {
-    RouteFunction::NormalPage { meta, body } => {
-    let title_clone = meta.title.clone();
-    let body_clone = body.clone();
-    let template_num = meta.template_num;
-    router.route(
-    &meta.route,
-    get(move || {
-    normal_page_template_handler(
-    title_clone.clone(),
-    body_clone.clone(),
-    template_num,
-    )
-    }),
-    )
-    }
-    //Help Page
-    RouteFunction::HelpPage { meta } => {
-    let title_clone = meta.title.clone();
-    let body_clone = help_text.to_string();
-    let template_num = 0;
-    router.route(
-    &meta.route,
-    get(move || {
-    normal_page_template_handler(
-    title_clone.clone(),
-    body_clone.clone(),
-    template_num,
-    )
-    }),
-    )
-    }
-    RouteFunction::RunCommand {
-    meta,
-    lock_file_path,
-    log_file_path,
-    script_file_path,
-    } => {
-    let lock_clone = lock_file_path.clone();
-    let log_clone = log_file_path.clone();
-    let script_clone = script_file_path.clone();
-    let title_clone = meta.title.clone();
-    router.route(
-    &meta.route,
-    get(move || {
-    run_command_handler(
-    lock_clone.clone(),
-    log_clone.clone(),
-    script_clone.clone(),
-    title_clone.clone(),
-    meta.template_num,
-    )
-    }),
-    )
-    }
-    RouteFunction::GetLogs {
-    meta,
-    log_file_types,
-    } => {
-    let title = meta.title.clone();
-    let log_types = log_file_types.clone();
-    router.route(
-    &meta.route,
-    get(move |query| get_logs_handler_wrapped(query, log_types.clone(), title.clone())),
-    )
-    }
-    RouteFunction::ApiCaller {
-    meta,
-    base_url,
-    endpoints,
-    } => {
-    let base_url_c = base_url.clone();
-    router.route(
-    &meta.route,
-    get(move |query| api_caller_wrapped(query, base_url_c.clone(), endpoints.clone())),
-    )
-    }
-    }*/
+    router.route(&path, route)
 }
 
 pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>, prot: i32) -> Router {
@@ -246,6 +172,7 @@ pub fn build_router_from_route_functions(route_functions: Vec<RouteFunction>, pr
         let meta = match &route_func {
             RouteFunction::NormalPage { meta, .. }
             | RouteFunction::HelpPage { meta, .. }
+            | RouteFunction::CommandStatus { meta, .. }
             | RouteFunction::RunCommand { meta, .. }
             | RouteFunction::GetLogs { meta, .. }
             | RouteFunction::ApiCaller { meta, .. } => meta,

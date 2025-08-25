@@ -9,11 +9,11 @@ use tokio::signal;
 use tower_sessions::cookie::Key;
 use tower_sessions_sqlx_store::SqliteStore;
 
-use crate::{add_user::adduser_from_prompt, certs::load_tls_config};
 use crate::config::CertMode;
 use crate::config::{SystemConfig, load_or_create_config};
 use crate::htmlv::load_template_config;
 use crate::myapi::routes;
+use crate::{add_user::adduser_from_prompt, certs::load_tls_config};
 use axum::{
     BoxError, Router,
     body::Body,
@@ -25,17 +25,18 @@ use axum::{
 };
 use axum_extra::extract::Host;
 use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 use tower_http::trace::TraceLayer;
 
 use crate::auth::{login, private, users::Backend};
+
 use tracing;
 pub struct RustyWebApp {
     db: SqlitePool,
     config: SystemConfig,
 }
 ///Ensure there is a user already.
-async fn first_time_setup(backend: &Backend)-> Result<(), Box<dyn std::error::Error>> {
-
+async fn first_time_setup(backend: &Backend) -> Result<(), Box<dyn std::error::Error>> {
     if backend.check_for_users().await? {
         println!("Users already exist.");
     } else {
@@ -60,6 +61,8 @@ impl RustyWebApp {
 
         Ok(Self { db, config })
     }
+
+    //Run the app.
     pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
         // Session layer.
         //
@@ -70,7 +73,6 @@ impl RustyWebApp {
         session_store.migrate().await?;
 
         let shutdown_handle = axum_server::Handle::new();
-        let shutdown_handle_clone = shutdown_handle.clone();
 
         let deletion_task = tokio::task::spawn(
             session_store
@@ -78,11 +80,11 @@ impl RustyWebApp {
                 .continuously_delete_expired(tokio::time::Duration::from_secs(60)),
         );
 
-        tokio::spawn(async move {
-            shutdown_signal().await;
-            tracing::warn!("Shutting down.");
-            shutdown_handle_clone.shutdown();
-        });
+        // tokio::spawn(async move {
+        //     shutdown_signal().await;
+        //     tracing::warn!("Shutting down.");
+        //     shutdown_handle_clone.shutdown();
+        // });
         let key = Key::generate();
 
         let session_layer = SessionManagerLayer::new(session_store)
@@ -95,13 +97,12 @@ impl RustyWebApp {
         // This combines the session layer with our backend to establish the auth
         // service which will provide the auth session as a request extension.
         let backend = Backend::new(self.db);
-        
+
         first_time_setup(&backend).await?;
         let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
         match self.config.cert_mode {
             CertMode::SelfSigned | CertMode::Manual => {
-                
                 let tls_config = load_tls_config(&self.config.cert_mode).await;
                 tokio::spawn(redirect_http_to_https(self.config.clone()));
 
@@ -111,7 +112,7 @@ impl RustyWebApp {
                     // Protected (login-required) routes
                     .nest(
                         "/protected",
-                        private::router()
+                        private::router(Arc::new(shutdown_handle.clone()))
                             .route_layer(login_required!(Backend, login_url = "/login")),
                     )
                     // Auth routes (e.g., login, logout)
@@ -125,11 +126,18 @@ impl RustyWebApp {
                 let addr = SocketAddr::from(([0, 0, 0, 0], self.config.https));
                 tracing::info!("HTTPS server listening on {}", addr);
 
-                axum_server::bind_rustls(addr, tls_config)
+                let server_fut = axum_server::bind_rustls(addr, tls_config)
                     .handle(shutdown_handle)
-                    .serve(app.into_make_service_with_connect_info::<SocketAddr>())
-                    .await?;
-                deletion_task.await??;
+                    .serve(app.into_make_service_with_connect_info::<SocketAddr>());
+                tokio::select! {
+                    res = server_fut => {
+                        res?;
+                    }
+                }
+
+                // After shutdown, abort deletion task
+                deletion_task.abort();
+                let _ = deletion_task.await; // optionally await abort
 
                 Ok(())
             }
@@ -147,7 +155,6 @@ impl RustyWebApp {
                     .handle(shutdown_handle)
                     .serve(app.into_make_service_with_connect_info::<SocketAddr>())
                     .await?;
-                deletion_task.await??;
 
                 Ok(())
             }

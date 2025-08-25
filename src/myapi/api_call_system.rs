@@ -1,8 +1,6 @@
 /// A generic external API handler.
 /// Currently only usable for GET requests.
-use axum::{
-    extract::Query, response::IntoResponse, response::Json,
-};
+use axum::{extract::Query, response::IntoResponse, response::Json};
 use reqwest::{Client, header};
 
 use axum::http::StatusCode;

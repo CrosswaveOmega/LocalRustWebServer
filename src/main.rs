@@ -19,15 +19,18 @@ mod logging;
 mod my_api_config;
 mod myapi;
 mod procmon;
+mod state;
 
-use std::env;
-
-use add_user::{adduser_from_prompt};
+use add_user::adduser_from_prompt;
 use app::RustyWebApp;
+use state::AppSingleton;
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    AppSingleton::init();
     logging::init_logging();
+
     let args: Vec<String> = env::args().collect();
 
     if let Some(cmd) = args.get(1) {
