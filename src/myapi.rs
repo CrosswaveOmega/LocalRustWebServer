@@ -91,6 +91,7 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
             all_routes.push(route);
         }
     }
+    // sort by help order
     all_routes.sort_by_key(|route_func| {
         let meta = match route_func {
             RouteFunction::NormalPage { meta, .. }
@@ -103,8 +104,32 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
         meta.help_order
     });
 
-    tracing::info!("Loaded {} route(s).", all_routes.len());
-    all_routes
+    // group
+    let mut grouped: HashMap<String, Vec<RouteFunction>> = HashMap::new();
+    for route in all_routes {
+        let group_name = match &route {
+            RouteFunction::NormalPage { meta, .. }
+            | RouteFunction::HelpPage { meta, .. }
+            | RouteFunction::CommandStatus { meta, .. }
+            | RouteFunction::RunCommand { meta, .. }
+            | RouteFunction::GetLogs { meta, .. }
+            | RouteFunction::ApiCaller { meta, .. } => &meta.help_group,
+        };
+        grouped.entry(group_name.clone()).or_default().push(route);
+    }
+
+    let mut final_routes = Vec::new();
+    let mut group_keys: Vec<_> = grouped.keys().cloned().collect();
+    group_keys.sort(); // optional: sort groups alphabetically
+
+    for key in group_keys {
+        if let Some(routes) = grouped.remove(&key) {
+            final_routes.extend(routes);
+        }
+    }
+
+    tracing::info!("Loaded {} route(s).", final_routes.len());
+    final_routes
 }
 
 /// Build up the body for a help page
@@ -112,6 +137,7 @@ pub fn load_routes_from_dir(dir_path: &str) -> Vec<RouteFunction> {
 pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
     let mut html = String::from("<h3>Help Page</h3>\n<ul>\n");
 
+    let mut current_group: Option<String> = None;
     for route_func in route_functions {
         let meta = match route_func {
             RouteFunction::NormalPage { meta, .. }
@@ -121,6 +147,18 @@ pub fn build_help_page_html(route_functions: Vec<RouteFunction>) -> String {
             | RouteFunction::GetLogs { meta, .. }
             | RouteFunction::ApiCaller { meta, .. } => meta,
         };
+
+        // Group handling.
+        if current_group.as_ref() != Some(&meta.help_group) {
+            if current_group.is_some() {
+                html.push_str("</ul>\n");
+            }
+            html.push_str(&format!(
+                "<b>{}</b>\n<ul>\n",
+                html_escape::encode_safe(&meta.help_group)
+            ));
+            current_group = Some(meta.help_group.clone());
+        }
 
         let route_prefix = if meta.auth_level >= 1 {
             "/protected"

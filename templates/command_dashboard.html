@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="/static/98.css">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }}</title>
+    <style>
+        /* Ensure the window resizes properly */
+        
+        .window {
+            width: 100%;
+            margin: auto;
+        }
+        
+        .window-body {
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+        }
+        
+        .status-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        
+        .status-bar-field {
+            flex: 1;
+            min-width: 100px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-bar-text">{{ title }} {{username}}</div>
+            <div class="title-bar-controls">
+                <button aria-label="Help" class="help" onclick="location.href='/help'"></button>
+                <button aria-label="Minimize" class="minimize"></button>
+                <button aria-label="Maximize" class="maximize"></button>
+                <button aria-label="Close" class="close" onclick="location.href='/'"></button>
+            </div>
+        </div>
+
+        <div class="window-body">
+            <h3>Running Commands</h3>
+            <div id="command_buttons"></div>
+            <button id="reload-btn">Reload Server</button> {{ body|safe }}
+        </div>
+        <div class="status-bar">
+            <p class="status-bar-field">Press F1 for help</p>
+            <p class="status-bar-field">Slide 1</p>
+            <p class="status-bar-field">CPU Usage: 14%</p>
+            <p class="status-bar-field">RAM Usage: 60%</p>
+            <p class="status-bar-field">Swap Usage: 0%</p>
+        </div>
+    </div>
+    <script src="/static/status.js"></script>
+    <script>
+        updateStatusBar();
+        // interval to update the status bar periodically (every 0.5 seconds)
+        setInterval(updateStatusBar, 500);
+    </script>
+    <script>
+        document.getElementById("reload-btn").addEventListener("click", async() => {
+            try {
+                const resp = await fetch("/protected/reload", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                            reason: "manual reload"
+                        }) // optional
+                });
+
+                if (resp.ok) {
+                    alert("Server reload triggered.");
+                } else {
+                    alert("Failed to trigger reload.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Error sending reload request.");
+            }
+        });
+
+        async function renderCommandButtons() {
+            const container = document.getElementById("command_buttons");
+            container.innerHTML = ""; // clear old buttons
+
+            try {
+                const resp = await fetch("/protected/command_status");
+                if (!resp.ok) {
+                    container.textContent = "Failed to load commands.";
+                    return;
+                }
+
+                const hashjson = await resp.json(); // expects {command: status, ...}
+
+                for (const [command, status] of Object.entries(hashjson)) {
+                    const div = document.createElement("div");
+                    div.textContent = `${command} [${status}] `;
+
+                    const btn = document.createElement("button");
+                    btn.textContent = "Kill";
+                    btn.className = "kill-btn";
+
+                    btn.onclick = async() => {
+                        try {
+                            const killResp = await fetch("/protected/kill_script", {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json"
+                                },
+                                body: JSON.stringify({
+                                    script: command
+                                })
+                            });
+
+                            if (killResp.ok) {
+                                alert(`Command ${command} killed successfully.`);
+                                div.remove(); // remove the command entry
+                            } else {
+                                const text = await killResp.text();
+                                alert(`Failed to kill ${command}: ${text}`);
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            alert(`Error killing command ${command}.`);
+                        }
+                    };
+
+                    div.appendChild(btn);
+                    container.appendChild(div);
+                }
+
+            } catch (err) {
+                console.error(err);
+                container.textContent = "Error loading commands.";
+            }
+        }
+
+
+        // Initial render
+        renderCommandButtons();
+    </script>
+</body>
+
+</html>

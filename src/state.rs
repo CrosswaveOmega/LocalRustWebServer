@@ -1,18 +1,17 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use serde_json::json;
 use std::sync::{Mutex, OnceLock};
+
 #[derive(Debug, Clone)]
 pub struct AppObj {
     pub hashstatus: HashMap<String, String>,
-    pub logs: Vec<(String, String)>,
 }
 
 impl AppObj {
     fn new() -> Self {
         Self {
             hashstatus: HashMap::new(),
-            logs: Vec::new(),
         }
     }
 }
@@ -38,23 +37,6 @@ impl AppSingleton {
         APP_SINGLETON
             .get()
             .expect("AppSingleton not initialized. Call AppSingleton::init() first.")
-    }
-
-    pub fn log_started(&self, script: &str) {
-        let mut obj = self.obj.lock().unwrap();
-        obj.logs.push((script.to_string(), "started".to_string()));
-        tracing::info!("{} started", script);
-    }
-
-    pub fn log_finished(&self, script: &str) {
-        let mut obj = self.obj.lock().unwrap();
-        obj.logs.push((script.to_string(), "finished".to_string()));
-        tracing::info!("{} finished", script);
-    }
-
-    pub fn get_logs(&self) -> Vec<(String, String)> {
-        let obj = self.obj.lock().unwrap();
-        obj.logs.clone()
     }
 
     pub fn insert_status(&self, key: &str, value: &str) {

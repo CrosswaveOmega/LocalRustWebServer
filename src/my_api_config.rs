@@ -43,6 +43,10 @@ pub struct RouteMeta {
     /// template_num- the html template number to use.  by default, it's 0.
     #[serde(default)]
     pub template_num: i32,
+    /// help_group- the category on the help page to be displayed under.
+    #[serde(default)]
+    pub help_group: String,
+
     /// auth_level- the authorization level required.  by default, it's 0.
     #[serde(default)]
     pub auth_level: i32,
@@ -93,7 +97,7 @@ pub enum RouteFunction {
     RunCommand {
         /// For running a specific .sh script.  
         ///
-        /// Intended for use on linux systems,
+        /// Intended for use on linux systems.
         #[serde(flatten)]
         meta: RouteMeta,
 
@@ -109,8 +113,6 @@ pub enum RouteFunction {
     CommandStatus {
         /// Get the commandStatus
         /// and/or optionally a special html template.
-        ///
-
         #[serde(flatten)]
         meta: RouteMeta,
     },
